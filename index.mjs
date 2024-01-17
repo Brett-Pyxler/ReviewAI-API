@@ -22,7 +22,7 @@ server.use(express.urlencoded({ extended: true }));
 
 server.post("/api/asin/estimate/task", AsinTaskPost);
 
-server.get("/api/asin/estimate/task/:asinId", AsinTaskGet);
+server.get("/api/asin/estimate/task/:estimateId", AsinTaskGet);
 
 server.get("/api/asin/estimate/task", AsinTaskGet);
 
