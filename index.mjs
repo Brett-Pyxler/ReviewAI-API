@@ -31,7 +31,7 @@ server.use(express.json());
 
 server.use(express.urlencoded({ extended: true }));
 
-server.all("/api/datafromseo/callback/data", amazonReviewsTaskCallback);
+server.all("/api/dataforseo/callback/data", amazonReviewsTaskCallback);
 
 server.post("/api/asin/estimate/task", asinTaskPost);
 
