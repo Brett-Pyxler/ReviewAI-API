@@ -3,7 +3,7 @@ import { HarmBlockThreshold, HarmCategory } from "@google/generative-ai";
 
 let genAI, model;
 
-async function aiGeminiTest() {
+async function aiGeminiTest(req, res, next) {
   try {
     genAI ??= new GoogleGenerativeAI(process.env.GOOGLEGEMINI_KEY);
 
