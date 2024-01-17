@@ -41,7 +41,12 @@ const AsinEstimatesSchema = new Schema({
       response: { type: Object, default: null },
       timestamp: { type: Date, default: null }
     },
-    complete: {
+    retrieve: {
+      request: { type: Object, default: null },
+      response: { type: Object, default: null },
+      timestamp: { type: Date, default: null }
+    },
+    callback: {
       request: { type: Object, default: null },
       response: { type: Object, default: null },
       timestamp: { type: Date, default: null }

@@ -1,4 +1,13 @@
-import { AsinEstimates } from "./models.mjs";
+import {
+  //
+  AsinEstimates
+} from "./models.mjs";
+
+import {
+  //
+  amazonReviewsTaskCreate,
+  amazonReviewsTaskRetrieve
+} from "./dataforseo.mjs";
 
 const asinPattern = /^[0-9A-Z]{10}$/;
 
@@ -12,7 +21,7 @@ function extractPattern(pattern) {
   );
 }
 
-async function AsinTaskPost(req, res, next) {
+async function asinTaskPost(req, res, next) {
   try {
     let asinId = extractPattern(
       asinPattern,
@@ -49,7 +58,7 @@ async function AsinTaskPost(req, res, next) {
   }
 }
 
-async function AsinTaskGet(req, res, next) {
+async function asinTaskGet(req, res, next) {
   try {
     let estimateId = extractPattern(
       objectPatern,
@@ -67,7 +76,31 @@ async function AsinTaskGet(req, res, next) {
 
     let r = await AsinEstimates.findById({ _id: estimateId });
 
-    console.log(r.save);
+    if (!r?.complete?.timestamp) {
+      // estimate is incomplete
+
+      if (!r?.dataforseo?.taskId) {
+        // dataforseo task is missing
+        let s = await amazonReviewsTaskCreate(r.asinId, {
+          // shallow depth for statistics
+          reviewDepth: 10,
+          // enable callback with estimateId
+          searchOptions: `estimateId=${estimateId}`
+        });
+        // update estimate attributes
+        r.dataforseo.taskId = s?.tasks?.[0]?.id;
+        r.dataforseo.create.response = s;
+        r.dataforseo.create.timestamp = new Date();
+        await r.save();
+      } else if (!r?.dataforseo?.isComplete) {
+        // dataforseo task is pending
+        let s = await amazonReviewsTaskRetrieve(r.dataforseo.taskId);
+        r.dataforseo.retrieve.response = s;
+        r.dataforseo.retrieve.timestamp = new Date();
+        await r.save();
+        // TODO: isComplete?
+      }
+    }
 
     return res.json({
       estimateId: r._id,
@@ -81,6 +114,6 @@ async function AsinTaskGet(req, res, next) {
 
 export {
   //
-  AsinTaskPost,
-  AsinTaskGet
+  asinTaskPost,
+  asinTaskGet
 };

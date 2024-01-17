@@ -8,7 +8,18 @@ import serverless from "serverless-http";
 
 import express from "express";
 
-import { AsinTaskPost, AsinTaskGet } from "./handlers.mjs";
+import {
+  //
+  amazonReviewsTaskCreate,
+  amazonReviewsTaskRetrieve,
+  amazonReviewsTaskCallback
+} from "./dataforseo.mjs";
+
+import {
+  //
+  asinTaskPost,
+  asinTaskGet
+} from "./handlers.mjs";
 
 const server = express();
 
@@ -20,11 +31,13 @@ server.use(express.json());
 
 server.use(express.urlencoded({ extended: true }));
 
-server.post("/api/asin/estimate/task", AsinTaskPost);
+server.all("/api/datafromseo/callback/data", amazonReviewsTaskCallback);
 
-server.get("/api/asin/estimate/task/:estimateId", AsinTaskGet);
+server.post("/api/asin/estimate/task", asinTaskPost);
 
-server.get("/api/asin/estimate/task", AsinTaskGet);
+server.get("/api/asin/estimate/task/:estimateId", asinTaskGet);
+
+server.get("/api/asin/estimate/task", asinTaskGet);
 
 server.all("*", async function (req, res, next) {
   res.status(404).end();
@@ -75,7 +88,7 @@ if (process.env.UNIT_TEST) {
 
   handler().then(() => {
     false &&
-      AsinTaskPost(
+      asinTaskPost(
         {
           query: { asinId: "A123456789" }
         },
@@ -85,7 +98,7 @@ if (process.env.UNIT_TEST) {
         .then(process.exit);
 
     false &&
-      AsinTaskGet(
+      asinTaskGet(
         {
           query: { estimateId: "6579a6443905549151a262fd" }
         },
