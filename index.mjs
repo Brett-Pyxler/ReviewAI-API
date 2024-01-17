@@ -28,7 +28,7 @@ import {
 
 import { authLogin, authLogout, authRetrieve, authRouteDecode, authRouteRequire } from "./authentication.mjs";
 
-import { DataforseoAmazonReviews } from "./models.mjs";
+import { AmazonAsins, DataforseoAmazonReviews, DataforseoCallbackCaches } from "./models.mjs";
 
 export const server = express();
 
@@ -149,11 +149,14 @@ if (process.env.CONN_TEST) {
     .then(process.exit);
 }
 
-// if (process.env.TESTEST) {
-//   dbConnect().then(async function () {
-//     let doc = await DataforseoAmazonReviews.findById("6594d3dd91ba48f97505d34e");
-//     console.log("found", !!doc);
-//     if (doc) console.log(await doc.save());
-//     process.exit();
-//   });
-// }
+if (process.env.TESTEST) {
+  dbConnect().then(async function () {
+    // let doc = await DataforseoAmazonReviews.findById("6594d3dd91ba48f97505d34e");
+    // let doc = await AmazonAsins.findById("65941bd5b7af2a90f4ffc7d2");
+    // let doc = await DataforseoCallbackCaches.findById("6594fd82d78088ce7e32e592");
+    let doc = await DataforseoCallbackCaches.findById("6594fd82d78088ce7e32e592");
+    console.log("found", !!doc);
+    if (doc) console.log(await doc.save());
+    process.exit();
+  });
+}

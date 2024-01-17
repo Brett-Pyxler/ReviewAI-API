@@ -349,50 +349,44 @@ const DataforseoAmazonReviewsSchema = new Schema({
 const extractReviewId = (i) => /\/([A-Z0-9]{10,})/.exec(i)?.[1];
 
 DataforseoAmazonReviewsSchema.pre("save", async function (next) {
-  console.log("DataforseoAmazonReviewsSchema.preSave");
   const doc = this;
   if (doc?.result?.complete) {
-    console.log("isComplete");
     // AmazonAsins
-    const asin = AmazonAsins.findOne({
-      asinId: doc?.request?.asinId
-    });
+    const asinId = doc?.result?.response?.asin;
+    const asin = await AmazonAsins.findOne({ asinId });
     if (asin) {
       // title
-      if (!doc?.result?.title) {
+      if (doc?.result?.title) {
         asin.title ??= doc?.result?.title;
+        console.log("Updating title:", String(asin.title));
         await asin.save();
       }
       // critical
       if (doc?.result?.reviews_count >= 0 && doc?.options?.filterByStar == "critical") {
         asin.reviews.critical ??= doc?.result?.reviews_count;
+        console.log("Updating critical:", asin.reviews.critical);
         await asin.save();
       }
       // AmazonReviews
-      for await (let item of doc.result.items) {
-        let gId = extractReviewId(item?.url);
-        let review = await AmazonReviews.findOne({
-          asinId: item.asin,
-          gId: gId
-        });
-        if (review) {
+      if (Array.isArray(doc?.result?.response?.items)) {
+        for await (let item of doc.result.response.items) {
+          let gId = extractReviewId(item?.url);
+          let review = await AmazonReviews.findOne({ asinId, gId });
           // todo: update with newer information?
-          console.log("review exists");
-        }
-        if (!review) {
-          console.log("creating review");
-          try {
-            review = await AmazonReviews.create({
-              asinId: item.asin,
-              gId: gId,
-              rawObject: review,
-              timestamps: {
-                firstSeen: new Date()
-              },
-              asin: asin?._id
-            });
-          } catch (err) {
-            console.error(err);
+          if (!review) {
+            try {
+              review = await AmazonReviews.create({
+                asinId,
+                gId,
+                rawObject: review,
+                timestamps: {
+                  firstSeen: new Date()
+                },
+                asin: asin?._id
+              });
+            } catch (err) {
+              console.error(err);
+            }
           }
         }
       }
@@ -433,7 +427,7 @@ DataforseoCallbackCachesSchema.post("save", async function (doc) {
           });
           if (!doc || doc?.result?.completed) continue;
           doc.result.response = result;
-          doc.complete = complete;
+          doc.result.complete = complete;
           doc.cache = doc?._id;
           doc.timestamps.completed = new Date(result?.datetime);
           await doc.save();
