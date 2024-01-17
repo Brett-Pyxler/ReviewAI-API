@@ -22,7 +22,7 @@ import {
   asinsReviewsEnumerate
 } from "./handler.organizations.mjs";
 
-import { dataforseoAmazonReviewsTaskCallback, dataforseoAmazonReviewsEnsure } from "./dataforseo.mjs";
+import { dataforseoAmazonReviewsTaskCallback } from "./dataforseo.mjs";
 
 import {
   adminSearch,
@@ -38,7 +38,7 @@ import {
 
 import { authLogin, authLogout, authRetrieve, authRouteDecode, authRouteRequire } from "./authentication.mjs";
 
-import { AmazonAsins, DataforseoAmazonReviews, DataforseoCallbackCaches, Members, Organizations } from "./models.mjs";
+import { Members, Organizations } from "./models.mjs";
 
 export const server = express();
 
@@ -188,11 +188,15 @@ if (process.env.SETUP) {
 if (process.env.REVALIDATE) {
   dbConnect().then(async function () {
     console.log("querying..");
-    const docs = await AmazonAsins.find().sort({ timestamp: 1 });
-    for await (let doc of docs) {
-      console.log(">>> doc", doc?._id);
-      await doc.syncReviews(null);
-    }
+    // const docs = await DataforseoAmazonReviews.find().sort({ timestamp: 1 });
+    // for await (let doc of docs) {
+    //   doc.populateReviews();
+    // }
+    // const docs = await AmazonAsins.find().sort({ timestamp: 1 });
+    // for await (let doc of docs) {
+    //   console.log(">>> doc", doc?._id);
+    //   await doc.syncReviews(null);
+    // }
     console.log("done.");
     process.exit();
   });

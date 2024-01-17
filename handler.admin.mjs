@@ -171,7 +171,7 @@ async function adminOrganizationAsinsAdd(req, res, next) {
     await response.save();
     // dataforseo
     await dataforseoAmazonReviewsEnsure(asinId, {
-      depth: 10,
+      reviewDepth: 10,
       filterByStar: "critical"
     });
     // response

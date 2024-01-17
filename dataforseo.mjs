@@ -56,6 +56,7 @@ async function dataforseoAmazonReviewsEnsure(asinId, options = {}) {
 
   // cache
   reviewRequest = await dataforseoAmazonReviewsCache(asinId, optionsKey, maxAge);
+  console.log("cache??", !!reviewRequest);
 
   // check
   if (reviewRequest?.request?.taskId && !reviewRequest?.result?.complete) {
@@ -87,16 +88,18 @@ async function dataforseoAmazonReviewsEnsure(asinId, options = {}) {
           language_code: options?.languageCode ?? "en_US",
           location_code: options?.locationCode ?? 2840,
           depth: options?.reviewDepth ?? 10,
-          filter_by_star: options?.filterByStar, // "all_stars" "critical"
-          reviewer_type: options?.reviewerType, // "all_reviews"
-          sort_by: options?.sortBy, // "helpful"
-          media_type: options?.mediaType // "all_contents
+          filter_by_star: options?.filterByStar, // *all_stars critical one_star two_star three_star four_star five_star
+          reviewer_type: options?.reviewerType, // *all_reviews avp_only_reviews
+          sort_by: options?.sortBy, // *helpful recent
+          media_type: options?.mediaType, // *all_contents media_reviews_only
+          filter_by_keyword: options?.filterByKeyword
         }
       ])
     })
   ).json();
 
   const taskId = response?.tasks?.[0]?.id;
+  console.log("create??", taskId);
 
   if (
     // response must contain an id
