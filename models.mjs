@@ -237,29 +237,43 @@ const AmazonAsinsSchema = new Schema(
         let needSaved = false;
 
         // basic
-        let _basic = await DataforseoAmazonReviews.findOne({
+        const _basic = await DataforseoAmazonReviews.findOne({
           "request.asinId": this.asinId,
-          "result.complete": true
+          "result.complete": true,
+          "result.task.data.filter_by_star": { $ne: "critical" }
         }).sort({
           "timestamps.completed": -1
         });
-        let basic = _basic?.result?.response;
+        const basic = _basic?.result?.response;
 
-        if (basic?.title && basic?.title != this.title) {
-          this.title = basic?.title;
+        // critical
+        const _critical = await DataforseoAmazonReviews.findOne({
+          "request.asinId": this.asinId,
+          "result.complete": true,
+          "result.task.data.filter_by_star": "critical"
+        }).sort({
+          "timestamps.completed": -1
+        });
+        const critical = _critical?.result?.response;
+        const reviewRequest = basic || critical;
+
+        // generic [either]
+        if (reviewRequest?.title && reviewRequest?.title != this.title) {
+          this.title = reviewRequest?.title;
           needSaved = true;
         }
 
-        if (basic?.image?.image_url && basic?.image?.image_url != this.imageUrl) {
-          this.imageUrl = basic?.image?.image_url;
+        if (reviewRequest?.image?.image_url && reviewRequest?.image?.image_url != this.imageUrl) {
+          this.imageUrl = reviewRequest?.image?.image_url;
           needSaved = true;
         }
 
-        if (basic?.image?.alt && basic?.image?.alt != this.imageAlt) {
-          this.imageAlt = basic?.image?.alt;
+        if (reviewRequest?.image?.alt && reviewRequest?.image?.alt != this.imageAlt) {
+          this.imageAlt = reviewRequest?.image?.alt;
           needSaved = true;
         }
 
+        // ratings [basic]
         if (
           (basic?.rating?.value && basic?.rating?.value != this.rating.value) ||
           (basic?.rating?.votes_count && basic?.rating?.votes_count != this.rating.votes_count) ||
@@ -271,21 +285,29 @@ const AmazonAsinsSchema = new Schema(
           needSaved = true;
         }
 
-        // critical
-        let _critical = await DataforseoAmazonReviews.findOne({
-          "request.asinId": this.asinId,
-          "result.complete": true,
-          "result.task.data.filter_by_star": "critical"
-        }).sort({
-          "timestamps.completed": -1
-        });
-        let critical = _critical?.result?.response;
+        // reviews [basic]
+        if (
+          //
+          basic?.reviews_count &&
+          basic?.reviews_count >= 0 &&
+          basic?.reviews_count != this.reviews.total
+        ) {
+          this.reviews.total = +basic?.reviews_count;
+          needSaved = true;
+        }
 
-        if (critical?.reviews_count >= 0 && critical?.reviews_count != this.reviews.critical) {
+        // reviews [critical]
+        if (
+          //
+          critical?.reviews_count &&
+          critical?.reviews_count >= 0 &&
+          critical?.reviews_count != this.reviews.critical
+        ) {
           this.reviews.critical = +critical?.reviews_count;
           needSaved = true;
         }
 
+        //
         if (needSaved) {
           await this.save();
         }

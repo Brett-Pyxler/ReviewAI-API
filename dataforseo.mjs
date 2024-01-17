@@ -56,7 +56,6 @@ async function dataforseoAmazonReviewsEnsure(asinId, options = {}) {
 
   // cache
   reviewRequest = await dataforseoAmazonReviewsCache(asinId, optionsKey, maxAge);
-  console.log("cache??", !!reviewRequest);
 
   // check
   if (reviewRequest?.request?.taskId && !reviewRequest?.result?.complete) {
@@ -99,7 +98,6 @@ async function dataforseoAmazonReviewsEnsure(asinId, options = {}) {
   ).json();
 
   const taskId = response?.tasks?.[0]?.id;
-  console.log("create??", taskId);
 
   if (
     // response must contain an id
