@@ -21,6 +21,11 @@ import {
   asinTaskGet
 } from "./handlers.mjs";
 
+import {
+  //
+  AsinEstimates
+} from "./models.mjs";
+
 const server = express();
 
 server.enable("trust proxy");
@@ -87,6 +92,15 @@ if (process.env.UNIT_TEST) {
   };
 
   handler().then(() => {
+    false &&
+      AsinEstimates.findById("657b0907fa51cc529a481c7a").then(function (doc) {
+        doc.set("dataforseo.retrieve.response", "changed");
+        doc.save().then(function () {
+          console.log("saved");
+          process.exit();
+        });
+      });
+
     false &&
       asinTaskPost(
         {

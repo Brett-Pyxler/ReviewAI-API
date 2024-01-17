@@ -35,7 +35,7 @@ async function asinTaskPost(req, res, next) {
       throw new Error("invalid asinId");
     }
 
-    let r = await AsinEstimates.create({
+    let doc = await AsinEstimates.create({
       asinId: asinId,
       create: {
         timestamp: new Date(),
@@ -48,14 +48,14 @@ async function asinTaskPost(req, res, next) {
       }
     });
 
-    if (!r?.asinId) {
+    if (!doc?.asinId) {
       throw new Error("invalid database response");
     }
 
     return res.json({
       //
-      asinId: r.asinId,
-      estimateId: r._id
+      asinId: doc.asinId,
+      estimateId: doc._id
     });
   } catch (err) {
     res.status(500).json({ message: String(err) });
@@ -78,14 +78,14 @@ async function asinTaskGet(req, res, next) {
       throw new Error("invalid estimateId");
     }
 
-    let r = await AsinEstimates.findById({ _id: estimateId });
+    let doc = await AsinEstimates.findById({ _id: estimateId });
 
-    if (!r?.complete?.isComplete || r?.complete?.metadata === null) {
+    if (!doc?.complete?.isComplete || doc?.complete?.metadata === null) {
       // estimate is incomplete
-      if (!r?.dataforseo?.taskId) {
+      if (!doc?.dataforseo?.taskId) {
         // dataforseo task is missing
         let ts = Date.now();
-        let s = await amazonReviewsTaskCreate(r.asinId, {
+        let s = await amazonReviewsTaskCreate(doc.asinId, {
           // shallow depth for statistics
           reviewDepth: 10,
           // enable callback with estimateId
@@ -93,46 +93,28 @@ async function asinTaskGet(req, res, next) {
         });
         let te = Date.now();
         // update estimate attributes
-        r.dataforseo.taskId = s?.tasks?.[0]?.id;
-        r.dataforseo.create.response = s;
-        r.dataforseo.create.timestamp = new Date();
-        r.dataforseo.create.timespan = te - ts;
-        await r.save();
-      } else if (!r?.dataforseo?.isComplete) {
+        doc.dataforseo.taskId = s?.tasks?.[0]?.id;
+        doc.dataforseo.create.response = s;
+        doc.dataforseo.create.timestamp = new Date();
+        doc.dataforseo.create.timespan = te - ts;
+        await doc.save();
+      } else if (!doc?.dataforseo?.isComplete) {
         // dataforseo task is pending
         let ts = Date.now();
-        let s = await amazonReviewsTaskRetrieve(r.dataforseo.taskId);
+        let s = await amazonReviewsTaskRetrieve(doc.dataforseo.taskId);
         let te = Date.now();
-        r.dataforseo.retrieve.response = s;
-        r.dataforseo.retrieve.timestamp = new Date();
-        r.dataforseo.retrieve.timespan = te - ts;
-        await r.save();
-        // ascertain completion
-        const result = Object.assign(
-          {},
-          r.dataforseo.retrieve.response.tasks?.[0]?.result?.[0]
-        );
-        r.complete.metadata = Object.assign({}, result, {
-          items: undefined,
-          items_count: undefined
-        });
-        r.complete.timestamp = new Date();
-        let isComplete = !!(
-          result?.reviews_count >= 0 &&
-          result?.title &&
-          result?.image?.image_url
-        );
-        r.dataforseo.isComplete = isComplete;
-        r.complete.isComplete = isComplete;
-        await r.save();
+        doc.dataforseo.retrieve.response = s;
+        doc.dataforseo.retrieve.timestamp = new Date();
+        doc.dataforseo.retrieve.timespan = te - ts;
+        await doc.save();
       }
     }
 
     return res.json({
       //
-      estimateId: r._id,
-      asinId: r.asinId,
-      complete: r.complete
+      estimateId: doc._id,
+      asinId: doc.asinId,
+      complete: doc.complete
     });
   } catch (err) {
     res.status(500).json({ message: String(err) });

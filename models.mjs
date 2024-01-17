@@ -59,6 +59,46 @@ const AsinEstimatesSchema = new Schema({
   }
 });
 
+AsinEstimatesSchema.pre("save", async function (next) {
+  const doc = this;
+  // process responses
+  if (
+    doc.isModified("dataforseo.retrieve.response") ||
+    doc.isModified("dataforseo.callback.response")
+  ) {
+    let result = {};
+    // callback response?
+    if (!result?.asin) {
+      result = Object.assign(
+        {},
+        doc.dataforseo.callback.response.tasks?.[0]?.result?.[0]
+      );
+    }
+    // retrieve respose?
+    if (!result?.asin) {
+      result = Object.assign(
+        {},
+        doc.dataforseo.retrieve.response.tasks?.[0]?.result?.[0]
+      );
+    }
+    // prune reviews from metadata
+    doc.complete.metadata = Object.assign({}, result, {
+      items: undefined,
+      items_count: undefined
+    });
+    // determine completion
+    let isComplete = !!(
+      result?.asin &&
+      result?.reviews_count >= 0 &&
+      result?.image?.image_url
+    );
+    doc.dataforseo.isComplete = isComplete;
+    doc.complete.isComplete = isComplete;
+    doc.complete.timestamp = new Date();
+  }
+  await next();
+});
+
 const AsinEstimates = model("asin_estimates", AsinEstimatesSchema);
 
 export {

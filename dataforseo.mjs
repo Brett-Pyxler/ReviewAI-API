@@ -1,4 +1,8 @@
-import { AccessLogs, AsinEstimates } from "./models.mjs";
+import {
+  //
+  AccessLogs,
+  AsinEstimates
+} from "./models.mjs";
 
 async function amazonReviewsTaskCreate(asinId, options = {}) {
   const authUser = process.env.DATAFORSEO_USER;
@@ -161,15 +165,6 @@ async function amazonReviewsTaskRetrieve(taskId) {
 
 async function amazonReviewsTaskCallback(req, res, next) {
   try {
-    await AccessLogs.create({
-      method: req.method,
-      url: req.url,
-      ip: req.ip,
-      headers: req.headers,
-      query: req.query,
-      body: req.body,
-      timestamp: new Date()
-    });
     if (req.query?.estimateId) {
       await AsinEstimates.findByIdAndUpdate(req.query?.estimateId, {
         $set: {
