@@ -68,7 +68,7 @@ server.all("*", async function (req, res, next) {
           // datenew: { S: String(new Date()) },
           // dateepo: { N: Date.now() },
         },
-        ReturnValues: "ALL_NEW",
+        ReturnValues: "ALL_OLD",
       }),
     );
   } catch (err) {
