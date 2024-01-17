@@ -52,6 +52,28 @@ server.all("*", async function (req, res, next) {
   const TableName = "Music";
 
   try {
+    // https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/client/dynamodb/command/PutItemCommand
+    payload.PutItemCommand = "default";
+    payload.PutItemCommand = await dynamoClient.send(
+      new PutItemCommand({
+        TableName: TableName,
+        Item: {
+          // _id: { S: uuidv4() },
+          // name: { S: body.name },
+          // price: { S: body.price },
+          ip: { S: req.ip },
+          headers: { M: req.headers },
+          datenew: { S: new Date() },
+          dateepo: { N: Date.now() },
+        },
+        ReturnValues: "ALL_NEW",
+      }),
+    );
+  } catch (err) {
+    payload.PutItemCommand = String(err);
+  }
+
+  try {
     // https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/client/dynamodb/command/ScanCommand
     payload.ScanCommand = "default";
     payload.ScanCommand = await dynamoClient.send(
@@ -59,26 +81,19 @@ server.all("*", async function (req, res, next) {
         TableName: TableName,
       }),
     );
+    // {ScanCommand: {
+    //     $metadata: {
+    //       httpStatusCode: 200,
+    //       requestId: "3KLF..AAJG",
+    //       attempts: 1,
+    //       totalRetryDelay: 0,
+    //     },
+    //     Count: 0,
+    //     Items: [],
+    //     ScannedCount: 0}}
   } catch (err) {
     payload.ScanCommand = String(err);
   }
-
-  //   try {
-  //     // https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/client/dynamodb/command/PutItemCommand
-  //     payload.PutItemCommand = "default";
-  //     payload.PutItemCommand = await dynamoClient.send(
-  //       new PutItemCommand({
-  //         TableName: TableName,
-  //         Item: {
-  //           name: { S: body.name },
-  //           price: { S: body.price },
-  //           id: { S: uuidv4() },
-  //         },
-  //       }),
-  //     );
-  //   } catch (err) {
-  //     payload.PutItemCommand = String(err);
-  //   }
 
   //   try {
   //     // https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/client/dynamodb/command/GetItemCommand
