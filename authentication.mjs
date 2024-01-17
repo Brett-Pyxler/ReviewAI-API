@@ -1,4 +1,9 @@
 import jwt from "jsonwebtoken";
+// import bcrypt from "bcrypt";
+
+// const saltRounds = 10;
+// user.passwordHash = await bcrypt.hash(password, saltRounds);
+// const match = await bcrypt.compare(password, user.passwordHash);
 
 // res.cookie('token', authTokenCreate({..}), { expires: new Date(Date.now() + 8 * 3600) })
 

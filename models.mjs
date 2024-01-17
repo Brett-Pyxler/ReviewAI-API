@@ -15,6 +15,26 @@ const AccessLogSchema = new Schema({
 
 const AccessLogs = model("access_logs", AccessLogSchema);
 
+// const MessagesSchema = new Schema({
+//   message: { type: String },
+//   threadId: { ?? }
+//   priority: {
+//     type: String,
+//     enum: ['normal', 'high'], // docs: https://mongoosejs.com/docs/validation.html
+//     default: "normal"
+//   },
+//   create: {
+//     timestamp: { type: Date },
+//     creatorId: { ?? },
+// },
+//   receive: { ?? },
+// });
+//
+// const Messages = model(
+//   "messages",
+//   MessagesSchema
+// );
+
 const DataforseoCallbackCachesSchema = new Schema({
   ip: { type: String },
   headers: { type: Object },
