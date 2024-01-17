@@ -23,13 +23,7 @@ function extractPattern(pattern) {
 
 async function asinEstimateTaskPost(req, res, next) {
   try {
-    let asinId = extractPattern(
-      asinPattern,
-      req.body?.asin_id,
-      req.body?.asinId,
-      req.query?.asin_id,
-      req.query?.asinId
-    );
+    let asinId = extractPattern(asinPattern, req.body?.asin_id, req.body?.asinId, req.query?.asin_id, req.query?.asinId);
 
     if (!asinId) {
       throw new Error("invalid asinId");
@@ -135,25 +129,13 @@ async function asinEstimateTaskGet(req, res, next) {
 
 async function asinEstimateTaskPatchPhone(req, res, next) {
   try {
-    let asinId = extractPattern(
-      asinPattern,
-      req.body?.asin_id,
-      req.body?.asinId,
-      req.query?.asin_id,
-      req.query?.asinId
-    );
+    let asinId = extractPattern(asinPattern, req.body?.asin_id, req.body?.asinId, req.query?.asin_id, req.query?.asinId);
 
     if (!asinId) {
       throw new Error("invalid asinId");
     }
 
-    let estimateId = extractPattern(
-      objectPatern,
-      req.body?.estimate_id,
-      req.body?.estimateId,
-      req.query?.estimate_id,
-      req.query?.estimateId
-    );
+    let estimateId = extractPattern(objectPatern, req.body?.estimate_id, req.body?.estimateId, req.query?.estimate_id, req.query?.estimateId);
 
     if (!estimateId) {
       throw new Error("invalid estimateId");

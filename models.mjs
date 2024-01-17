@@ -1,7 +1,12 @@
 import { model, Schema } from "mongoose";
+import { flatten as flattenNotation } from "mongo-dot-notation";
+import { memberTransform, asinTransform, amazonReviewTransform, resultSort, extractReviewId, filterDuplicates } from "./model.transforms.mjs";
 import { dfsARScrapesPost, dfsARScrapesGet } from "./dataforseo.mjs";
 import { oaiCreateAndRun, oaiThreadRetrieve } from "./openai.mjs";
+import { queueRestart } from "./queue.mjs";
 import OpenAI from "openai";
+
+const flatten = (i) => flattenNotation(i).$set;
 
 const cMembers = "members";
 const cOrganizations = "organizations";
@@ -14,31 +19,19 @@ const cDataforseoARScrapes = "dataforseo_amazon_reviews";
 const cDataforseoCallbackCaches = "dataforseo_callback_cache";
 const cAsinEstimates = "amazon_asin_estimates";
 
-const extractReviewId = (i) => /\/([A-Z0-9]{10,})/.exec(i)?.[1];
-
-const filterDuplicates = (v, i, o) => o.findIndex((x) => String(x) == String(v)) == i;
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Members
 
-function memberTransform(doc, ret, options) {
-  delete ret.security;
-  ret.sessions?.map?.((ptr) => {
-    delete ptr.token;
-  });
-  return ret;
-}
-
-const MemberSessionsSchema = new Schema({
-  token: { type: String },
-  userAgent: { type: String },
-  ipAddress: { type: String },
-  timestamps: {
-    firstSeen: { type: Date, required: true },
-    lastSeen: { type: Date, required: true },
-    lastUpdate: { type: Date, required: true }
-  }
-});
+const MemberSessionsSchema = new Schema(
+  {
+    token: { type: String },
+    userAgent: { type: String },
+    ipAddress: { type: String }
+    // createdAt: ISODate("2024-01-15T10:33:33.132Z"),
+    // updatedAt: ISODate("2024-01-15T10:33:33.132Z")
+  },
+  { timestamps: true }
+);
 
 const MembersSchema = new Schema(
   {
@@ -53,13 +46,9 @@ const MembersSchema = new Schema(
     security: {
       passwordHash: { type: String }
     },
-    sessions: [MemberSessionsSchema],
-    // settings: { notifications, .. },
-    // avatars: { image_100: { type: Object } }
-    timestamps: {
-      firstSeen: { type: Date },
-      lastUpdate: { type: Date }
-    }
+    sessions: [MemberSessionsSchema]
+    // createdAt: ISODate("2024-01-15T10:33:33.132Z"),
+    // updatedAt: ISODate("2024-01-15T10:33:33.132Z")
   },
   {
     timestamps: true,
@@ -70,15 +59,12 @@ const MembersSchema = new Schema(
 
 MembersSchema.pre("save", async function (next) {
   // email addresses
-  if (this.isModified("emailAddresses emailAddressesLc")) {
-    this.emailAddresses = this.emailAddresses.filter((x) => !!x?.trim).map((x) => x.trim());
-    this.emailAddressesLc = this.emailAddresses.map((x) => x.toLowerCase());
-  }
+  this.emailAddresses = this.emailAddresses.filter((x) => !!x?.trim).map((x) => x.trim());
+  this.emailAddressesLc = this.emailAddresses.map((x) => x.toLowerCase());
   // duplicates
-  if (this.isModified("organizations")) {
-    this.organizations = this.organizations.filter(filterDuplicates);
-  }
+  this.organizations = this.organizations.filter(filterDuplicates);
   // organizations
+  // todo: convert to queue
   if (this.isModified("organizations")) {
     // append to organizations
     await Organizations.updateMany(
@@ -93,8 +79,6 @@ MembersSchema.pre("save", async function (next) {
       { $pull: { members: this._id } }
     );
   }
-  // timestamps
-  if (this.isModified()) this.timestamps.lastUpdate = new Date();
   next();
 });
 
@@ -103,30 +87,21 @@ const Members = model(cMembers, MembersSchema);
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Organizations
 
-const OrganizationsSchema = new Schema({
-  preferredName: { type: String },
-  timestamps: {
-    firstSeen: { type: Date, required: true },
-    lastUpdate: { type: Date }
+const OrganizationsSchema = new Schema(
+  {
+    preferredName: { type: String },
+    members: [{ type: Schema.Types.ObjectId, ref: cMembers }],
+    asins: [{ type: Schema.Types.ObjectId, ref: cAmazonAsins }]
+    // createdAt: ISODate("2024-01-15T10:33:33.132Z"),
+    // updatedAt: ISODate("2024-01-15T10:33:33.132Z")
   },
-  members: [{ type: Schema.Types.ObjectId, ref: cMembers }],
-  asins: [{ type: Schema.Types.ObjectId, ref: cAmazonAsins }]
-});
+  { timestamps: true }
+);
 
 OrganizationsSchema.pre("save", async function (next) {
   // duplicates
-  if (this.isModified("members")) {
-    this.members = this.members.filter(filterDuplicates);
-  }
-  if (this.isModified("asins")) {
-    this.asins = this.asins.filter(filterDuplicates);
-  }
-  next();
-});
-
-OrganizationsSchema.pre("save", async function (next) {
-  // timestamps
-  this.timestamps.lastUpdate = new Date();
+  this.members = this.members.filter(filterDuplicates);
+  this.asins = this.asins.filter(filterDuplicates);
   next();
 });
 
@@ -138,11 +113,10 @@ const Organizations = model(cOrganizations, OrganizationsSchema);
 const ThreadsSchema = new Schema(
   {
     title: { type: String },
-    timestamps: {
-      created: { type: Date, required: true }
-    },
     organization: { type: Schema.Types.ObjectId, ref: cOrganizations },
     member: { type: Schema.Types.ObjectId, ref: cMembers }
+    // createdAt: ISODate("2024-01-15T10:33:33.132Z"),
+    // updatedAt: ISODate("2024-01-15T10:33:33.132Z")
   },
   { timestamps: true }
 );
@@ -155,11 +129,10 @@ const Threads = model(cThreads, ThreadsSchema);
 const MessagesSchema = new Schema(
   {
     message: { type: String, required: true },
-    timestamps: {
-      created: { type: Date, required: true }
-    },
     member: { type: Schema.Types.ObjectId, ref: cMembers },
     thread: { type: Schema.Types.ObjectId, ref: cThreads }
+    // createdAt: ISODate("2024-01-15T10:33:33.132Z"),
+    // updatedAt: ISODate("2024-01-15T10:33:33.132Z")
   },
   { timestamps: true }
 );
@@ -173,16 +146,20 @@ const NotificationsSchema = new Schema(
   {
     title: { type: String },
     message: { type: String },
+    transport: {
+      type: String,
+      enum: ["email" /* "sms", "app" */],
+      default: "email"
+    },
     priority: {
       type: String,
       enum: ["normal", "high"],
       default: "normal"
     },
-    timestamps: {
-      created: { type: Date, required: true }
-    },
     organization: { type: Schema.Types.ObjectId, ref: cOrganizations },
     member: { type: Schema.Types.ObjectId, ref: cMembers }
+    // createdAt: ISODate("2024-01-15T10:33:33.132Z"),
+    // updatedAt: ISODate("2024-01-15T10:33:33.132Z")
   },
   { timestamps: true }
 );
@@ -191,18 +168,6 @@ const Notifications = model(cNotifications, NotificationsSchema);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // AmazonAsins
-
-function asinTransform(doc, ret, options) {
-  delete ret.requests;
-  return ret;
-}
-
-function resultSort([k1, v1], [k2, v2]) {
-  // oldest to newest
-  if (v1.updated < v2.updated) return 1;
-  else if (v1.updated > v2.updated) return -1;
-  return 0;
-}
 
 const AmazonAsinsSchema = new Schema(
   {
@@ -243,160 +208,174 @@ const AmazonAsinsSchema = new Schema(
     // google: {
     //   approved: { type: Boolean, default: false }
     // }
-    timestamps: {
-      firstSeen: { type: Date },
-      lastUpdate: { type: Date }
-    },
-    queue: {
-      idle: { type: Boolean, default: false },
-      order: { type: Number, default: 1 }
-    },
-    requests: { type: Object, default: {} }
+    requests: { type: Object, default: {} },
+    requestsOnce: { type: Boolean, default: false },
+    requestsPending: [String]
+    // createdAt: ISODate("2024-01-15T10:33:33.132Z"),
+    // updatedAt: ISODate("2024-01-15T10:33:33.132Z")
   },
   {
     timestamps: true,
     toObject: { transform: asinTransform },
     toJSON: { transform: asinTransform },
     methods: {
-      async onTick() {
-        console.log("AmazonAsinsSchema.onTick()", String(this?._id));
-        let actions = 0;
-        // initial information
-        actions += await this.dfsARScrapesEnsure("initial-default-10", { reviewDepth: 10 });
-        actions += await this.dfsARScrapesEnsure("initial-crtical-10", { reviewDepth: 10, filterByStar: "critical" });
-        // if review count > 100:
-        let moreReviews = this.requests?.["initial-default-10"]?.result?.reviews_count > 100;
-        console.log({ moreReviews });
-        if (moreReviews && this.asinId == "B07VWKKBPY") {
-          // get reviews by stars
-          for await (let star of ["one_star", "two_star", "three_star", "four_star", "five_star"]) {
-            let starKey = `bystar-${star}-100`;
-            actions += await this.dfsARScrapesEnsure(starKey, {
-              reviewDepth: 100,
-              filterByStar: star
-            });
-            let moreStars = this.requests?.[starKey]?.result?.reviews_count > 100;
-            console.log({ moreStars });
-            if (moreStars) {
-              // additional by stars
-              for await (let word of [
-                "scent",
-                "smell",
-                "cologne",
-                "smells",
-                "product",
-                "great",
-                "really",
-                "would",
-                "again",
-                "women"
-              ]) {
-                let wordKey = `bystar-${star}-${word}-100`;
-                actions += await this.dfsARScrapesEnsure(wordKey, {
+      async dfsARScrapesEnsures() {
+        console.log("AmazonAsins", String(this._id), "dfsARScrapesEnsures()");
+        // -- estimation stage
+        // initial information (# total reviews)
+        await this.dfsARScrapesEnsure(`initial-default-10`, { reviewDepth: 10, filterByStar: "all_stars" });
+        // critical information (# critical reviews)
+        await this.dfsARScrapesEnsure(`initial-critical-10`, { reviewDepth: 10, filterByStar: "critical" });
+        // -- tracking stage
+        if (this.dataforseo.approved) {
+          // find normally visible reviews
+          await this.dfsARScrapesEnsure(`default-100`, { reviewDepth: 100 });
+          // if more than 100:
+          let moreReviews = this.requests?.["initial-default-10"]?.result?.reviews_count > 100;
+          if (this.dataforseo.approved && moreReviews) {
+            // narrow by star filter
+            const _sortbys = ["helpful", "recent"];
+            const _filterbys = ["critical", "one_star", "two_star", "three_star", "four_star", "five_star"];
+            for await (let _sortby of _sortbys) {
+              for await (let _filterby of _filterbys) {
+                let _key = `bystar-${_filterby}-sortby-${_sortby}-100`;
+                await this.dfsARScrapesEnsure(_key, {
                   reviewDepth: 100,
-                  filterByStar: star,
-                  filterByKeyword: word
+                  filterByStar: _filterby,
+                  sortBy: _sortby
                 });
+                // let moreStars = this.requests?.[_key]?.result?.reviews_count > 100;
               }
             }
           }
         }
-        //
-        if (this.dataforseo.approved) {
-          // find normally visible reviews
-          // i.e., what visitors would see
-          actions += await this.dfsARScrapesEnsure("default-100", { reviewDepth: 100 });
-          // find recent reviews
-          // i.e., progressive updates
-          actions += await this.dfsARScrapesEnsure("default-recent-100", { reviewDepth: 100, sortBy: "recent" });
-          // find critical reviews
-          // i.e., unfavorable reviews
-          actions += await this.dfsARScrapesEnsure("critical-100", { reviewDepth: 100, filterByStar: "critical" });
-        }
-        //
-        console.log("AmazonAsinsSchema.actions", actions);
-        if (!actions) {
-          this.queue.order = 0;
-          await this.save();
-        }
-        return actions;
       },
       async dfsARScrapesEnsure(key, options) {
-        console.log("AmazonAsinsSchema.requestEnsure()", String(this?._id), key);
+        console.log("AmazonAsins", String(this._id), "dfsARScrapesEnsure()", key);
         options.tag = key;
-        if (this.requests?.[key]?.taskId && !this.requests?.[key]?.result?.asin) {
-          try {
-            Object.assign(this.requests[key], await dfsARScrapesGet(this.requests?.[key]?.taskId));
-            this.markModified("requests");
-            await this.save();
+        try {
+          let _request = this.requests?.[key];
+          let _taskId = _request?.taskId || _request?.task?.id;
+          let _asin = _request?.result?.asin;
+          let _processed = _request?.processed;
+          if (_processed && this.requestsPending.includes(key)) {
+            // remove from pending
+            console.log("removing from pending!");
+            await AmazonAsins.findByIdAndUpdate(this._id, {
+              $pull: { requestsPending: key }
+            });
+          } else if (_processed) {
+            // skip
+          } else if (_taskId && _asin) {
+            // try to process the results
+            console.log("Process;");
             await this.notifyRequestUpdated();
-          } catch (err) {
-            // todo: errors += 1;
-            console.log(String(err));
+            await AmazonAsins.findByIdAndUpdate(this._id, {
+              $set: flatten({
+                requests: {
+                  [key]: {
+                    processed: true
+                  }
+                }
+              }),
+              // $addToSet: { requestsPending: key }
+              $pull: { requestsPending: key }
+            });
+          } else if (_taskId) {
+            // try to get the results if a task is running
+            console.log("Get;");
+            let r = await dfsARScrapesGet(_taskId);
+            await AmazonAsins.findByIdAndUpdate(this._id, {
+              $set: flatten({
+                requests: {
+                  [key]: r
+                }
+              }),
+              $addToSet: { requestsPending: key }
+              // $pull: { requestsPending: key }
+            });
+            console.log("Get()", { key }, r?.task?.id, "=>", r?.result?.asin);
+          } else {
+            // try to create a task
+            console.log("Post;");
+            let r = await dfsARScrapesPost(this.asinId, options);
+            await AmazonAsins.findByIdAndUpdate(this._id, {
+              $set: flatten({
+                requests: {
+                  [key]: r
+                }
+              }),
+              $addToSet: { requestsPending: key }
+              // $pull: { requestsPending: key }
+            });
+            console.log("Post()", { key }, "=>", r?.taskId);
           }
-        } else if (!this.requests?.[key]?.taskId) {
-          try {
-            this.requests[key] = await dfsARScrapesPost(this.asinId, options);
-            this.markModified("requests");
-            await this.save();
-          } catch (err) {
-            console.log(String(err));
-          }
-        } else {
-          return 0;
+        } catch (err) {
+          // todo: this.queue.errors += 1;
+          console.log(err);
         }
-        return 1;
       },
       async notifyRequestUpdated() {
+        console.log("AmazonAsins", String(this._id), "notifyRequestUpdated()");
         await this.populateFields();
         await this.populateReviews();
         await this.syncReviews();
       },
       async populateFields() {
+        console.log("AmazonAsins", String(this._id), "populateFields()");
         const doc = this;
-        console.log("populateFields()", String(doc?._id));
+        let updateObject = {};
+        // note: .updatedAt replaced .updated
         Object.entries(doc.requests)
-          .filter(([k, v]) => v?.updated)
+          .filter(([k, v]) => v?.updatedAt || v?.updated)
           .sort(resultSort)
           .map(([k, v]) => {
-            console.log("kv", k);
-            let isCritical = v?.task?.data?.filter_by_star == "critical";
-            //
+            let isDefault = (!v?.task?.data?.filter_by_star || v?.task?.data?.filter_by_star == "all_stars") && !v?.task?.data?.filter_by_keyword;
+            let isCritical = v?.task?.data?.filter_by_star == "critical" && !v?.task?.data?.filter_by_keyword;
+            console.log("- kv", k, { isDefault, isCritical });
+            // any
             if (v?.result?.title) {
-              doc.title = v.result.title;
+              updateObject.title = v.result.title;
             }
             if (v?.result?.image?.image_url) {
-              doc.imageUrl = v?.result?.image?.image_url;
+              updateObject.imageUrl = v?.result?.image?.image_url;
             }
             if (v?.result?.image?.alt) {
-              doc.imageAlt = v?.result?.image?.alt;
+              updateObject.imageAlt = v?.result?.image?.alt;
             }
-            if (
-              !isCritical &&
-              (v?.result?.rating?.value || v?.result?.rating?.votes_count || v?.result?.rating?.rating_max)
-            ) {
-              doc.rating.value = v?.result?.rating?.value;
-              doc.rating.votes_count = v?.result?.rating?.votes_count;
-              doc.rating.rating_max = v?.result?.rating?.rating_max;
+            // default
+            if (isDefault && !isCritical && v?.result?.rating?.value && v?.result?.rating?.votes_count && v?.result?.rating?.rating_max) {
+              updateObject.rating ??= {};
+              updateObject.rating.value = v?.result?.rating?.value;
+              updateObject.rating.votes_count = v?.result?.rating?.votes_count;
+              updateObject.rating.rating_max = v?.result?.rating?.rating_max;
             }
-            if (!isCritical && v?.result?.reviews_count) {
-              doc.reviews.total = +v?.result?.reviews_count;
+            if (isDefault && !isCritical && v?.result?.reviews_count) {
+              updateObject.reviews ??= {};
+              updateObject.reviews.total = +v?.result?.reviews_count;
             }
+            // critical
             if (isCritical && v?.result?.reviews_count) {
-              doc.reviews.critical = +v?.result?.reviews_count;
+              updateObject.reviews ??= {};
+              updateObject.reviews.critical = +v?.result?.reviews_count;
             }
           });
-        await doc.save();
+        await AmazonAsins.findByIdAndUpdate(doc._id, {
+          $set: flatten(updateObject)
+        });
       },
       async populateReviews() {
+        console.log("AmazonAsins", String(this._id), "populateReviews()");
         const doc = this;
-        console.log("populateReviews()", String(doc?._id));
         try {
           await Promise.all(
             Object.entries(doc.requests)
-              .filter(([k, v]) => v?.updated && Array.isArray(v?.result?.items))
+              // completed requests
+              .filter(([k, v]) => (v?.updatedAt || v?.updated) && v?.result?.asin && Array.isArray(v?.result?.items))
+              // oldest to newest
               .sort(resultSort)
-              .map(([k, v]) => {
+              // upsert operation
+              .map(([k, v]) =>
                 AmazonReviews.create(
                   v.result?.items?.map?.((item) =>
                     Object.assign({
@@ -407,54 +386,83 @@ const AmazonAsinsSchema = new Schema(
                     })
                   ),
                   { aggregateErrors: true }
-                );
-              })
+                )
+              )
           );
         } catch (err) {
           console.log("populateReviews.catch", err);
         }
       },
       async syncReviews() {
-        let agg = await AmazonReviews.aggregate([
-          { $match: { asinId: this.asinId } },
-          { $group: { _id: "$status", count: { $sum: 1 } } }
-        ]);
-        this.reviews.counted = 0;
+        console.log("AmazonAsins", String(this._id), "syncReviews()");
+        let updateObject = {};
+        let agg = await AmazonReviews.aggregate([{ $match: { asinId: this.asinId } }, { $group: { _id: "$status", count: { $sum: 1 } } }]);
+        updateObject.reviews ??= {};
+        updateObject.reviews.count ??= {};
+        updateObject.reviews.counted = 0;
         for (let key of Object.keys(this.reviews.count)) {
-          this.reviews.count[key] = 0;
+          updateObject.reviews.count[key] = 0;
         }
-        for (let a of agg) {
-          this.reviews.counted += a.count;
-          this.reviews.count[a._id] = a.count;
+        for (let doc of agg) {
+          // i.e., { _id: 'inactive', count: 209 }
+          updateObject.reviews.counted += doc.count ?? 0;
+          updateObject.reviews.count[doc._id] = doc.count ?? 0;
         }
-        await this.save();
+        await AmazonAsins.findByIdAndUpdate(this._id, {
+          $set: flatten(updateObject)
+        });
       }
     }
   }
 );
 
-AmazonAsinsSchema.pre("save", async function (next) {
-  // queue
-  this.queue.idle = !!this.queue.order;
-  // timestamps
-  this.timestamps.lastUpdate = new Date();
-  next();
+// AmazonAsinsSchema.pre("save", async function (next) {
+//   next();
+// });
+
+AmazonAsinsSchema.post("save", async function (doc) {
+  console.log("AmazonAsins.save()", String(doc._id));
 });
+
+AmazonAsinsSchema.index(
+  // see queue.mjs
+  { requestsOnce: 1 },
+  { unique: false }
+);
+
+AmazonAsinsSchema.index(
+  // see queue.mjs
+  { requestsPending: 1 },
+  { unique: false }
+);
 
 const AmazonAsins = model(cAmazonAsins, AmazonAsinsSchema);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// AmazonReviews
+// AmazonComplaints
 
-function amazonReviewTransform(doc, ret, options) {
-  ret.openai = {
-    latest: {
-      textContent: ret?.openai?.latest?.textContent,
-      threatValue: ret?.openai?.latest?.threatValue
-    }
-  };
-  return ret;
-}
+// const AmazonComplaintsSchema = new Schema({
+//   complaintId: { type: String },
+//   asinId: {
+//     type: String
+//   },
+//   status: {
+//     type: String,
+//     enum: [
+//       "inactive", // not started
+//       "active", // before complaintId
+//       "pending", // after complaintId
+//       "refused", // complaint failure
+//       "removed" // complaint success
+//     ],
+//     default: "inactive"
+//   }
+// });
+
+// const AmazonComplaints = model(, );
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// AmazonReviews
 
 const AmazonReviewsSchema = new Schema(
   {
@@ -484,10 +492,6 @@ const AmazonReviewsSchema = new Schema(
       default: "inactive"
     },
     rawObject: { type: Object },
-    timestamps: {
-      firstSeen: { type: Date, required: true },
-      lastUpdate: { type: Date }
-    },
     complaintId: {
       type: String,
       default: null
@@ -513,56 +517,79 @@ const AmazonReviewsSchema = new Schema(
     // ^ sum of openai.threatValue and google.threatValue
     // todo: is there a use-case for asin ref?
     asin: { type: Schema.Types.ObjectId, ref: AmazonAsins },
-    queue: {
-      idle: { type: Boolean, default: false },
-      order: { type: Number, default: 1 }
-    }
+    requestsOnce: { type: Boolean, default: false },
+    requestsPending: [String]
+    // createdAt: ISODate("2024-01-15T10:33:33.132Z"),
+    // updatedAt: ISODate("2024-01-15T10:33:33.132Z")
   },
   {
     timestamps: true,
     toObject: { transform: amazonReviewTransform },
     toJSON: { transform: amazonReviewTransform },
     methods: {
-      async onTick() {
-        console.log("AmazonReviewsSchema.onTick()", String(this?._id));
-        this.queue.order = 0;
-        await this.save();
-      },
       async openaiCheck() {
+        console.log("AmazonReviews.openaiCheck()", String(this._id), this.openai?.latest?.threadId, this.openai?.latest?.threatValue);
         const assistantId = "asst_tHyw4fctPkNN22LPJxZw9WrZ";
+        if (process.env.ENVIRONMENT == "dev") {
+          // restricted region
+          return;
+        }
         if (this.openai?.latest?.retryCount >= 5) {
           return;
         }
         if (!this.openai?.latest?.threadId) {
+          console.log("oaiCreateAndRun()");
           let r = await oaiCreateAndRun(this.rawObject?.review_text, assistantId, {
             gId: this.gId,
             asinId: this.asinId
           });
           if (r?.threadId) {
-            this.openai.latest.assistantId = r?.assistantId;
-            this.openai.latest.threadId = r?.threadId;
-            this.openai.latest.threadObject = r?.threadObject;
-            this.openai.history.push(r);
+            await AmazonReviews.findByIdAndUpdate(this._id, {
+              $set: {
+                "openai.latest.assistantId": r?.assistantId,
+                "openai.latest.threadId": r?.threadId,
+                "openai.latest.threadObject": r?.threadObject
+              },
+              $push: {
+                "openai.history": r
+              },
+              $addToSet: { requestsPending: r?.threadId }
+            });
           } else {
-            this.openai.latest.retryCount += 1;
+            await AmazonReviews.findByIdAndUpdate(this._id, {
+              $inc: {
+                "openai.latest.retryCount": 1
+              }
+            });
           }
-          await this.save();
           return true;
         }
         if (!this.openai?.latest?.textContent && this.openai?.latest?.threadId) {
+          console.log("oaiThreadRetrieve()");
           let r = await oaiThreadRetrieve(this.openai?.latest?.threadId, 1);
           if (r?.textContent) {
-            this.openai.latest.threadMessages = r?.threadMessages;
-            this.openai.latest.responseObject = r?.responseObject;
-            this.openai.latest.textContent = r?.textContent;
-            this.openai.history.push(r);
-            // *** assistantId dependant result
-            this.openai.threatValue = /^true/i.test(this.openai.latest.textContent) ? 0.0 : 1.0;
-            this.threatValue = this.openai.threatValue /* this.google.threatValue */;
+            let threatValue = /^true/i.test(r?.textContent) ? 0.0 : 1.0;
+            await AmazonReviews.findByIdAndUpdate(this._id, {
+              $set: {
+                "openai.latest.threadMessages": r?.threadMessages,
+                "openai.latest.responseObject": r?.responseObject,
+                "openai.latest.textContent": r?.textContent,
+                // *** assistantId dependant result
+                "openai.threatValue": threatValue,
+                threatValue: threatValue
+              },
+              $push: {
+                "openai.history": r
+              },
+              $pull: { requestsPending: this.openai?.latest?.threadId }
+            });
           } else {
-            this.openai.latest.retryCount += 1;
+            await AmazonReviews.findByIdAndUpdate(this._id, {
+              $inc: {
+                "openai.latest.retryCount": 1
+              }
+            });
           }
-          await this.save();
           return true;
         }
       }
@@ -570,19 +597,24 @@ const AmazonReviewsSchema = new Schema(
   }
 );
 
-AmazonReviewsSchema.pre("save", async function (next) {
-  // queue
-  this.queue.idle = !!this.queue.order;
-  // timestamps
-  this.timestamps.lastUpdate = new Date();
-  next();
-});
-
 AmazonReviewsSchema.post("save", async function (doc) {
+  console.log("AmazonReviews.save()", String(doc._id));
   // AmazonAsins
   const asin = await AmazonAsins.findOne({ asinId: doc.asinId });
   await asin?.syncReviews?.();
 });
+
+AmazonReviewsSchema.index(
+  // see queue.mjs
+  { requestsOnce: 1 },
+  { unique: false }
+);
+
+AmazonReviewsSchema.index(
+  // see queue.mjs
+  { requestsPending: 1 },
+  { unique: false }
+);
 
 const AmazonReviews = model(cAmazonReviews, AmazonReviewsSchema);
 
@@ -594,10 +626,12 @@ const DataforseoCallbackCachesSchema = new Schema(
     ip: { type: String },
     headers: { type: Object },
     query: { type: Object },
-    body: { type: Object },
-    timestamp: { type: Date }
+    body: { type: Object }
+    // createdAt: ISODate("2024-01-15T10:33:33.132Z"),
+    // updatedAt: ISODate("2024-01-15T10:33:33.132Z")
   },
   {
+    timestamps: true,
     methods: {
       async notify() {
         const doc = this;
@@ -610,31 +644,31 @@ const DataforseoCallbackCachesSchema = new Schema(
             if (!asinId) continue;
             const asin = await AmazonAsins.findOne({ asinId });
             if (!asin?.requests) continue;
-            let r = Object.entries(asin?.requests)
+            // determine the request key
+            let key = Object.entries(asin?.requests)
               .filter(([k, v]) => v?.taskId == taskId && !v?.result?.asin)
-              .map(([k, v]) => {
-                Object.assign(asin.requests[k], {
-                  task,
-                  response: doc.body,
-                  result,
-                  updated: result.datetime
-                });
-              });
-            if (r.length) {
-              console.log("DataforseoCallbackCachesSchema.notify()");
-              await asin.save();
-              await asin.notifyRequestUpdated();
-            }
+              .map(([k, v]) => k)?.[0];
+            if (!key) continue;
+            await AmazonAsins.findByIdAndUpdate(asin._id, {
+              $set: flatten({
+                requests: {
+                  [key]: {
+                    task,
+                    response: doc.body,
+                    result,
+                    updatedAt: result.datetime
+                  }
+                }
+              }),
+              $addToSet: { requestsPending: key }
+            });
+            queueRestart();
           }
         }
       }
     }
   }
 );
-
-DataforseoCallbackCachesSchema.post("save", async function (doc) {
-  await doc.notify();
-});
 
 const DataforseoCallbackCaches = model(cDataforseoCallbackCaches, DataforseoCallbackCachesSchema);
 

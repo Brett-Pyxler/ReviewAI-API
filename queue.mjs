@@ -1,41 +1,75 @@
-import { AmazonAsins, AmazonReviews } from "./models.mjs";
+import { Members, Organizations, AmazonAsins, AmazonReviews } from "./models.mjs";
 
-const timers = {
-  AmazonAsins: { model: AmazonAsins },
-  AmazonReviews: { model: AmazonReviews }
-};
+let timerId;
 
-async function queueBegin() {
-  return;
-  for (let name in timers) {
-    timers[name].timerId = setTimeout(queueTick, 0, name);
-  }
-}
-
-async function queueTick(name) {
+async function queueTick() {
+  console.log("queueTick()");
+  if (timerId) timerId = clearInterval(timerId);
   let docs;
   try {
-    docs = await timers[name].model
-      .find({ "queue.order": { $ne: 0 } })
-      .sort({ "queue.order": 1 })
-      .limit(5);
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // AmazonAsins
+    docs = await AmazonAsins.find({
+      $or: [
+        // initial requests
+        { requestsOnce: false },
+        // pending requests
+        { requestsPending: { $exists: true, $ne: [] } }
+      ]
+    });
+    console.log("queueTick.AmazonAsins:", docs?.length ?? 0);
     for await (let doc of docs) {
-      try {
-        doc.onTick();
-      } catch (err) {
-        console.log("onTick.catch", name, String(doc?._id));
+      console.log("queueTick.AmazonAsins:", String(doc?._id));
+      await doc.dfsARScrapesEnsures();
+      if (!doc.requestsOnce) {
+        await AmazonAsins.findByIdAndUpdate(doc._id, {
+          $set: { requestsOnce: true }
+        });
+      }
+    }
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // AmazonReviews
+    docs = await AmazonReviews.find({
+      $or: [
+        // initial requests
+        { requestsOnce: false },
+        // pending requests
+        { requestsPending: { $exists: true, $ne: [] } }
+      ]
+    });
+    console.log("queueTick.AmazonReviews:", docs?.length ?? 0);
+    for await (let doc of docs) {
+      console.log("queueTick.AmazonReviews:", String(doc?._id));
+      await doc.openaiCheck();
+      if (!doc.requestsOnce) {
+        await AmazonReviews.findByIdAndUpdate(doc._id, {
+          $set: { requestsOnce: true }
+        });
       }
     }
   } catch (err) {
-    console.error("queueTick.catch", name, err);
+    console.error("queueTick.catch", err);
   } finally {
-    timers[name].timerId = setTimeout(queueTick, docs?.length ? 5000 : 60000, name);
+    if (timerId) {
+      console.log("queueTick.warn: timerId set elsewhere");
+      return;
+    }
+    let wait = docs?.length ? 5000 : 300000;
+    console.log("queueTick.wait", wait);
+    timerId = setTimeout(queueTick, wait);
   }
 }
 
-async function queueSoon(name) {
-  clearTimeout(timers[name].timerId);
-  timers[name].timerId = setTimeout(queueTick, 0, name);
+function queueRestart() {
+  console.log("queueRestart()");
+  if (timerId) timerId = clearInterval(timerId);
+  timerId = setTimeout(queueTick, 0);
 }
 
-export { queueBegin, queueSoon };
+async function queueBegin() {
+  // await AmazonAsins.updateMany({}, { $set: { requestsOnce: false } });
+  console.log("queueBegin()");
+  timerId = setTimeout(queueTick, 0);
+}
+
+export { queueRestart, queueBegin };

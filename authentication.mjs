@@ -3,18 +3,12 @@ import bcrypt from "bcrypt";
 import { v4 as uuidv4 } from "uuid";
 import { Members } from "./models.mjs";
 
-process.env.JWT_SECRET ??= "secret";
-// process.env.SALT_ROUNDS ??= 10;
-
-// passwordHash = await bcrypt.hash(password, saltRounds);
-// match = await bcrypt.compare(password, passwordHash);
-
 function authTokenCreate(data) {
   return jwt.sign(data, process.env.JWT_SECRET);
 }
 
 function authTokenDecode(token) {
-  return new Promise(function (resolve, reject) {
+  return new Promise(function (resolve) {
     jwt.verify(token, process.env.JWT_SECRET, function (err, decoded) {
       resolve(decoded);
     });
@@ -54,7 +48,7 @@ async function authRouteRequire(req, res, next) {
 
   try {
     // timestamp
-    req.session.timestamps.lastSeen = new Date();
+    req.session.updatedAt = new Date();
     await req.member.save();
   } catch (err) {
     res.status(500).json({ message: String(err) });
@@ -71,7 +65,7 @@ async function authLogin(req, res, next) {
     // if (req.auth) {
     //   throw new Error("Already authenticated.");
     // }
-    const login = String(req.body?.login ?? "");
+    const login = String(req.body?.login ?? "").toLowerCase();
     const pass = String(req.body?.pass ?? "");
     if (!login || !pass) {
       throw new Error("Missing credentials.");
@@ -98,12 +92,7 @@ async function authLogin(req, res, next) {
     req.member.sessions.push({
       token: tokenId,
       userAgent: req.headers?.["user-agent"],
-      ipAddress: req.ip,
-      timestamps: {
-        firstSeen: date,
-        lastSeen: date,
-        lastUpdate: date
-      }
+      ipAddress: req.ip
     });
     await req.member.save();
     // response

@@ -6,6 +6,8 @@ import mongoose from "mongoose";
 
 import bcrypt from "bcrypt";
 
+import nodemailer from "nodemailer";
+
 import helmet from "helmet";
 
 import serverless from "serverless-http";
@@ -68,10 +70,7 @@ server.use(async function (req, res, next) {
 });
 // Authentication
 
-server
-  .post("/api/auth", authRouteDecode, authLogin)
-  .get("/api/auth", authRouteRequire, authRetrieve)
-  .delete("/api/auth", authRouteRequire, authLogout);
+server.post("/api/auth", authRouteDecode, authLogin).get("/api/auth", authRouteRequire, authRetrieve).delete("/api/auth", authRouteRequire, authLogout);
 
 // Public
 
@@ -273,8 +272,6 @@ if (process.env.DFS_TEST) {
     process.exit();
   });
 }
-
-import nodemailer from "nodemailer";
 
 if (process.env.MAIL_TEST) {
   let transporter = nodemailer.createTransport({

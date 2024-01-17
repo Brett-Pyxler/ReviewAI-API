@@ -161,15 +161,8 @@ async function adminOrganizationAsinsAdd(req, res, next) {
     if (!response) {
       throw new Error("Unknown organization.");
     }
-    let asin = await AmazonAsins.findOne({
-      asinId
-    });
-    asin ??= await AmazonAsins.create({
-      asinId,
-      timestamps: {
-        firstSeen: new Date()
-      }
-    });
+    let asin = await AmazonAsins.findOne({ asinId });
+    asin ??= await AmazonAsins.create({ asinId });
     if (!asin) {
       throw new Error("Unknown asin.");
     }

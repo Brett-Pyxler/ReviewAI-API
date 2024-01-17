@@ -13,7 +13,6 @@ async function dfsARScrapeCallback(req, res, next) {
   try {
     let doc = await DataforseoCallbackCaches.create({
       body: Object.assign({}, req.body),
-      timestamp: new Date(),
       ip: req.ip,
       headers: Object.assign({}, req.headers),
       query: Object.assign({}, req.query)
@@ -68,7 +67,7 @@ async function dfsARScrapesPost(asinId, options = {}) {
   return {
     taskId,
     request,
-    created: new Date()
+    createdAt: new Date()
   };
 }
 
@@ -84,8 +83,7 @@ async function dfsARScrapesGet(taskId) {
   ).json();
 
   await DataforseoCallbackCaches.create({
-    body: Object.assign({}, response),
-    timestamp: new Date()
+    body: Object.assign({}, response)
     // ip: req.ip,
     // headers: Object.assign({}, req.headers),
     // query: Object.assign({}, req.query)
@@ -96,15 +94,16 @@ async function dfsARScrapesGet(taskId) {
 
   if (!result?.asin) {
     // {"status_code":20000,"status_message":"Ok.","tasks":[{"id":..,"status_code":40602,"status_message":"Task In Queue.",..}]}
-    console.log(JSON.stringify(response));
+    console.log(JSON.stringify(response?.status_message || response));
     throw new Error("Incomplete response");
   }
 
   return {
     task,
+    taskId,
     response,
     result,
-    updated: result.datetime
+    updatedAt: result.datetime
   };
 }
 
