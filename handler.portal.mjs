@@ -108,20 +108,21 @@ async function asinsReviewsEnumerate(req, res, next) {
 }
 
 async function apiSearch(req, res, next) {
+  // note: organizations and members are disabled because the portal cannot render them (yet).
   try {
     const pattern = req.query?.pattern ?? req.body?.pattern ?? null;
-    // find organizations
-    let orgs = await Organizations.find({
-      preferredName: { $regex: pattern, $options: "i" },
-      _id: { $in: req.member.organizations }
-    }).exec();
-    // find members
-    let mems = await Members.find({
-      preferredName: { $regex: pattern, $options: "i" },
-      organizations: { $in: req.member.organizations }
-    })
-      .populate("organizations")
-      .exec();
+    // // find organizations
+    // let orgs = await Organizations.find({
+    //   preferredName: { $regex: pattern, $options: "i" },
+    //   _id: { $in: req.member.organizations }
+    // }).exec();
+    // // find members
+    // let mems = await Members.find({
+    //   preferredName: { $regex: pattern, $options: "i" },
+    //   organizations: { $in: req.member.organizations }
+    // })
+    //   .populate("organizations")
+    //   .exec();
     // find asins
     let asins = await AmazonAsins.find({
       $or: [{ title: { $regex: pattern, $options: "i" } }, { asinId: { $regex: pattern, $options: "i" } }]
@@ -129,8 +130,8 @@ async function apiSearch(req, res, next) {
     // response
     res.json({
       search: []
-        .concat(orgs.map((ptr) => Object.assign(ptr.toJSON(), { model: "Organizations" })))
-        .concat(mems.map((ptr) => Object.assign(ptr.toJSON(), { model: "Members" })))
+        // .concat(orgs.map((ptr) => Object.assign(ptr.toJSON(), { model: "Organizations" })))
+        // .concat(mems.map((ptr) => Object.assign(ptr.toJSON(), { model: "Members" })))
         .concat(asins.map((ptr) => Object.assign(ptr.toJSON(), { model: "Asins" })))
     });
   } catch (err) {
