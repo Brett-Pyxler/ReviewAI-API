@@ -10,16 +10,16 @@ import express from "express";
 
 import {
   //
-  amazonReviewsTaskCreate,
-  amazonReviewsTaskRetrieve,
-  amazonReviewsTaskCallback
+  // dataforseoAmazonReviewsTaskCreate,
+  // dataforseoAmazonReviewsTaskRetrieve,
+  dataforseoAmazonReviewsTaskCallback
 } from "./dataforseo.mjs";
 
 import {
   //
-  asinTaskPost,
-  asinTaskGet,
-  asinTaskPatchPhone
+  asinEstimateTaskPost,
+  asinEstimateTaskGet,
+  asinEstimateTaskPatchPhone
 } from "./handlers.mjs";
 
 import {
@@ -37,19 +37,43 @@ server.use(express.json());
 
 server.use(express.urlencoded({ extended: true }));
 
-server.all("/api/dataforseo/callback/data", amazonReviewsTaskCallback);
+server.all(
+  //
+  "/api/dataforseo/callback/data",
+  dataforseoAmazonReviewsTaskCallback
+);
 
-server.patch("/api/asin/estimate/task/phone", asinTaskPatchPhone);
+server.patch(
+  //
+  "/api/asin/estimate/task/phone",
+  asinEstimateTaskPatchPhone
+);
 
-server.post("/api/asin/estimate/task", asinTaskPost);
+server.post(
+  //
+  "/api/asin/estimate/task",
+  asinEstimateTaskPost
+);
 
-server.get("/api/asin/estimate/task/:estimateId", asinTaskGet);
+server.get(
+  //
+  "/api/asin/estimate/task/:estimateId",
+  asinEstimateTaskGet
+);
 
-server.get("/api/asin/estimate/task", asinTaskGet);
+server.get(
+  //
+  "/api/asin/estimate/task",
+  asinEstimateTaskGet
+);
 
-server.all("*", async function (req, res, next) {
-  res.status(404).end();
-});
+server.all(
+  //
+  "*",
+  async function (req, res, next) {
+    res.status(404).end();
+  }
+);
 
 export const handler = async function (event, context) {
   global.mongoose_client ??= await mongoose.connect(
@@ -105,7 +129,7 @@ if (process.env.UNIT_TEST) {
       });
 
     false &&
-      asinTaskPost(
+      asinEstimateTaskPost(
         {
           query: { asinId: "A123456789" }
         },
@@ -115,7 +139,7 @@ if (process.env.UNIT_TEST) {
         .then(process.exit);
 
     false &&
-      asinTaskGet(
+      asinEstimateTaskGet(
         {
           query: { estimateId: "657c1d2f603b41a97208c1a6" }
         },

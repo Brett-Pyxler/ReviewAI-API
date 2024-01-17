@@ -14,6 +14,19 @@ const AccessLogSchema = new Schema({
 
 const AccessLogs = model("access_logs", AccessLogSchema);
 
+const DataforseoCallbackCachesSchema = new Schema({
+  ip: { type: String },
+  headers: { type: Object },
+  query: { type: Object },
+  body: { type: Object },
+  timestamp: { type: Date }
+});
+
+const DataforseoCallbackCaches = model(
+  "dataforseo_callback_cache",
+  DataforseoCallbackCachesSchema
+);
+
 const AsinEstimatesSchema = new Schema({
   asinId: {
     type: String,
@@ -76,6 +89,20 @@ AsinEstimatesSchema.index(
   }
 );
 
+AsinEstimatesSchema.index(
+  {
+    //
+    asinId: 1,
+    "complete.isComplete": 1,
+    "complete.timestamp": -1,
+    "dataforseo.create.response.tasks.data.filter_by_star": 1
+  },
+  {
+    //
+    unique: false
+  }
+);
+
 AsinEstimatesSchema.pre("save", async function (next) {
   const doc = this;
   // process responses
@@ -126,5 +153,6 @@ const AsinEstimates = model("asin_estimates", AsinEstimatesSchema);
 export {
   //
   AccessLogs,
+  DataforseoCallbackCaches,
   AsinEstimates
 };

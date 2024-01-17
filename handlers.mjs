@@ -5,8 +5,8 @@ import {
 
 import {
   //
-  amazonReviewsTaskCreate,
-  amazonReviewsTaskRetrieve
+  dataforseoAmazonReviewsTaskCreate,
+  dataforseoAmazonReviewsTaskRetrieve
 } from "./dataforseo.mjs";
 
 const asinPattern = /^[0-9A-Z]{10}$/;
@@ -21,7 +21,7 @@ function extractPattern(pattern) {
   );
 }
 
-async function asinTaskPost(req, res, next) {
+async function asinEstimateTaskPost(req, res, next) {
   try {
     let asinId = extractPattern(
       asinPattern,
@@ -63,7 +63,7 @@ async function asinTaskPost(req, res, next) {
   }
 }
 
-async function asinTaskGet(req, res, next) {
+async function asinEstimateTaskGet(req, res, next) {
   try {
     let estimateId = extractPattern(
       objectPatern,
@@ -83,7 +83,7 @@ async function asinTaskGet(req, res, next) {
 
     if (!doc?.complete?.isComplete || doc?.complete?.metadata === null) {
       // estimate is incomplete
-      let cache = await asinTaskCache(doc.asinId);
+      let cache = await asinEstimateTaskCache(doc.asinId);
       if (cache) {
         // metadata cache is available
         doc.complete = Object.assign({}, cache.complete);
@@ -93,11 +93,13 @@ async function asinTaskGet(req, res, next) {
       } else if (!doc?.dataforseo?.taskId) {
         // dataforseo task is missing
         let ts = Date.now();
-        let s = await amazonReviewsTaskCreate(doc.asinId, {
+        let s = await dataforseoAmazonReviewsTaskCreate(doc.asinId, {
           // shallow depth for statistics
           reviewDepth: 10,
           // enable callback with estimateId
-          searchOptions: `estimateId=${estimateId}`
+          searchOptions: `estimateId=${estimateId}`,
+          // ensure ${reviews_count} refers to critical
+          filterByStar: "critical"
         });
         let te = Date.now();
         // update estimate attributes
@@ -109,7 +111,9 @@ async function asinTaskGet(req, res, next) {
       } else if (!doc?.dataforseo?.isComplete) {
         // dataforseo task is pending
         let ts = Date.now();
-        let s = await amazonReviewsTaskRetrieve(doc.dataforseo.taskId);
+        let s = await dataforseoAmazonReviewsTaskRetrieve(
+          doc.dataforseo.taskId
+        );
         let te = Date.now();
         doc.dataforseo.retrieve.response = s;
         doc.dataforseo.retrieve.timestamp = new Date();
@@ -130,7 +134,7 @@ async function asinTaskGet(req, res, next) {
   }
 }
 
-async function asinTaskPatchPhone(req, res, next) {
+async function asinEstimateTaskPatchPhone(req, res, next) {
   try {
     let asinId = extractPattern(
       asinPattern,
@@ -178,7 +182,7 @@ async function asinTaskPatchPhone(req, res, next) {
   }
 }
 
-async function asinTaskCache(asinId) {
+async function asinEstimateTaskCache(asinId) {
   // cache within 7 days
   let d = new Date();
   d.setDate(d.getDate() - 7);
@@ -187,7 +191,9 @@ async function asinTaskCache(asinId) {
       // filter
       asinId,
       "complete.isComplete": true,
-      "complete.timestamp": { $gte: d }
+      "complete.timestamp": { $gte: d },
+      // require critical
+      "dataforseo.create.response.tasks.data.filter_by_star": "critical"
     },
     null,
     {
@@ -201,8 +207,21 @@ async function asinTaskCache(asinId) {
 
 export {
   //
-  asinTaskPost,
-  asinTaskGet,
-  asinTaskPatchPhone,
-  asinTaskCache
+  asinEstimateTaskPost,
+  asinEstimateTaskGet,
+  asinEstimateTaskPatchPhone,
+  asinEstimateTaskCache
 };
+
+/*
+db.asin_estimates.find(
+  {"dataforseo.create.response.tasks.data.filter_by_star":{$ne: "critical"}},
+  {$set: {
+    "dataforseo.isComplete": false,
+    "dataforseo.taskId": "",
+    "dataforseo.create.response": null,
+    "dataforseo.retrieve.response": null,
+    "dataforseo.callback.response": null,
+    "complete.isComplete": false,
+  }});
+*/
