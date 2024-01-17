@@ -8,6 +8,8 @@ import serverless from "serverless-http";
 
 import express from "express";
 
+import cookieParser from "cookie-parser";
+
 import {
   //
   // dataforseoAmazonReviewsTaskCreate,
@@ -27,11 +29,20 @@ import {
   AsinEstimates
 } from "./models.mjs";
 
+import {
+  //
+  authCreate,
+  authDelete,
+  authRetrieve
+} from "./authentication";
+
 const server = express();
 
 server.enable("trust proxy");
 
 server.disable("x-powered-by");
+
+server.use(cookieParser());
 
 server.use(express.json());
 
@@ -65,6 +76,24 @@ server.get(
   //
   "/api/asin/estimate/task",
   asinEstimateTaskGet
+);
+
+server.post(
+  //
+  "/api/auth",
+  authCreate
+);
+
+server.delete(
+  //
+  "/api/auth",
+  authDelete
+);
+
+server.all(
+  //
+  "/api/auth",
+  authRetrieve
 );
 
 server.all(

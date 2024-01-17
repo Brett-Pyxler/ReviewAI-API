@@ -7,6 +7,7 @@ const AccessLogSchema = new Schema({
   headers: { type: Object },
   query: { type: Object },
   body: { type: Object },
+  cookies: { type: Object },
   timestamp: { type: Date },
   aws: { type: Object },
   num: { type: Number, default: 0 }
@@ -40,7 +41,8 @@ const AsinEstimatesSchema = new Schema({
       ip: { type: String },
       query: { type: Object },
       body: { type: Object },
-      headers: { type: Object }
+      headers: { type: Object },
+      cookies: { type: Object },
     }
   },
   complete: {

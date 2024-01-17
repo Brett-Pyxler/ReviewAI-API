@@ -43,7 +43,8 @@ async function asinEstimateTaskPost(req, res, next) {
           ip: req.ip,
           query: req.query,
           body: req.body,
-          headers: req.headers
+          headers: req.headers,
+          cookies: req.cookies
         }
       }
     });
@@ -214,7 +215,7 @@ export {
 };
 
 /*
-db.asin_estimates.find(
+db.asin_estimates.updateMany(
   {"dataforseo.create.response.tasks.data.filter_by_star":{$ne: "critical"}},
   {$set: {
     "dataforseo.isComplete": false,
@@ -224,4 +225,5 @@ db.asin_estimates.find(
     "dataforseo.callback.response": null,
     "complete.isComplete": false,
   }});
+=> {acknowledged: true, insertedId: null, matchedCount: 98, modifiedCount: 98, upsertedCount: 0}
 */
