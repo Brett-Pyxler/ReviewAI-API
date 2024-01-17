@@ -31,23 +31,25 @@ async function queueTick() {
     }
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // AmazonReviews
-    docs = await AmazonReviews.find({
-      $or: [
-        // initial requests
-        { requestsOnce: false },
-        // pending requests
-        { requestsPending: { $exists: true, $ne: [] } }
-      ]
-    }).limit(5);
-    docCount += docs?.length ?? 0;
-    console.log("queueTick.AmazonReviews:", docs?.length ?? 0);
-    for await (let doc of docs) {
-      console.log("queueTick.AmazonReviews:", String(doc?._id));
-      await doc.openaiCheck();
-      if (!doc.requestsOnce) {
-        await AmazonReviews.findByIdAndUpdate(doc._id, {
-          $set: { requestsOnce: true }
-        });
+    if (process.env.npm_lifecycle_event != "dev") {
+      docs = await AmazonReviews.find({
+        $or: [
+          // initial requests
+          { requestsOnce: false },
+          // pending requests
+          { requestsPending: { $exists: true, $ne: [] } }
+        ]
+      }).limit(5);
+      docCount += docs?.length ?? 0;
+      console.log("queueTick.AmazonReviews:", docs?.length ?? 0);
+      for await (let doc of docs) {
+        console.log("queueTick.AmazonReviews:", String(doc?._id));
+        await doc.openaiCheck();
+        if (!doc.requestsOnce) {
+          await AmazonReviews.findByIdAndUpdate(doc._id, {
+            $set: { requestsOnce: true }
+          });
+        }
       }
     }
   } catch (err) {
