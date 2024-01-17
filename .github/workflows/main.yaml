@@ -40,11 +40,11 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          scp pyxler-api.tar ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:~
+          scp -o StrictHostKeyChecking=no pyxler-api.tar ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:~
 
       - name: Docker Load
         run: |
-          ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'ENDSSH'
+          ssh -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'ENDSSH'
           docker load -i ~/pyxler-api.tar
           docker service update --force --detach --env-add "GITHUB_HEADREF=${{ github.head_ref }}" --env-add "GITHUB_SHA=${{ github.sha }}" pyxler_pyxler-api
           ENDSSH
