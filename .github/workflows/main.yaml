@@ -33,7 +33,7 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Compress
-        run: zip -j archive.zip ./index.mjs ./package.json ./node_modules
+        run: zip -j archive.zip ./index.mjs ./package.json ~/.npm/node_modules
   
       - name: Deploy
-        run: aws lambda update-function-code --function-name=function1 --zip-file=./archive.zip
+        run: aws lambda update-function-code --function-name=function1 --zip-file=fileb://./archive.zip
