@@ -82,7 +82,13 @@ async function asinTaskGet(req, res, next) {
 
     if (!doc?.complete?.isComplete || doc?.complete?.metadata === null) {
       // estimate is incomplete
-      if (!doc?.dataforseo?.taskId) {
+      let cache = await asinTaskCache(doc.asinId);
+      if (cache) {
+        // metadata cache is available
+        doc.dataforseo.retrieve.response = cache;
+        doc.dataforseo.retrieve.timestamp = new Date();
+        doc.dataforseo.retrieve.timespan = 0;
+      } else if (!doc?.dataforseo?.taskId) {
         // dataforseo task is missing
         let ts = Date.now();
         let s = await amazonReviewsTaskCreate(doc.asinId, {
@@ -121,8 +127,35 @@ async function asinTaskGet(req, res, next) {
   }
 }
 
+async function asinTaskCache(asinId) {
+  // cache within 7 days
+  let d = new Date();
+  d.setDate(d.getDate() - 7);
+  return await AsinEstimates.findOne(
+    {
+      // filter
+      asinId,
+      "complete.isComplete": true,
+      "complete.timestamp": { $gte: d }
+    },
+    {
+      // projection
+      _id: 1,
+      asinId: 1,
+      complete: 1
+    },
+    {
+      // options
+      sort: {
+        "complete.timestamp": -1
+      }
+    }
+  );
+}
+
 export {
   //
   asinTaskPost,
-  asinTaskGet
+  asinTaskGet,
+  asinTaskCache
 };

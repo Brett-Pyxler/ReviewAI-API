@@ -59,6 +59,19 @@ const AsinEstimatesSchema = new Schema({
   }
 });
 
+AsinEstimatesSchema.index(
+  {
+    //
+    asinId: 1,
+    "complete.isComplete": 1,
+    "complete.timestamp": -1
+  },
+  {
+    //
+    unique: false
+  }
+);
+
 AsinEstimatesSchema.pre("save", async function (next) {
   const doc = this;
   // process responses
