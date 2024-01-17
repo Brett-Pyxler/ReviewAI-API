@@ -63,7 +63,7 @@ server.all("*", async function (req, res, next) {
           // price: { S: body.price },
           ip: { S: req.ip },
           headers: { M: req.headers },
-          datenew: { S: new Date() },
+          datenew: { S: String(new Date()) },
           dateepo: { N: Date.now() },
         },
         ReturnValues: "ALL_NEW",
