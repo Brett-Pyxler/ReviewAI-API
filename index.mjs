@@ -190,6 +190,7 @@ if (process.env.TESTEST) {
     console.log("querying..");
     const docs = await DataforseoCallbackCaches.find().sort({ timestamp: 1 });
     for await (let doc of docs) {
+      console.log("########################################")
       console.log("doc", doc?._id);
       doc.markModified("result");
       await doc.save();

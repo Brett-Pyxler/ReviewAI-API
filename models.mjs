@@ -180,32 +180,104 @@ const Notifications = model(cNotifications, NotificationsSchema);
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // AmazonAsins
 
-const AmazonAsinsSchema = new Schema({
-  asinId: {
-    type: String,
-    required: true,
-    index: {
-      unique: false
+const AmazonAsinsSchema = new Schema(
+  {
+    asinId: {
+      type: String,
+      required: true,
+      index: {
+        unique: false
+      }
+    },
+    title: { type: String },
+    imageUrl: { type: String },
+    imageAlt: { type: String },
+    rating: {
+      value: { type: String, default: null },
+      votes_count: { type: String },
+      rating_max: { type: String }
+    },
+    reviews: {
+      total: { type: Number, default: 0 },
+      critical: { type: Number, default: null },
+      count: {
+        inactive: { type: Number, default: 0 },
+        active: { type: Number, default: 0 },
+        pending: { type: Number, default: 0 },
+        refused: { type: Number, default: 0 },
+        removed: { type: Number, default: 0 }
+      }
+    },
+    timestamps: {
+      firstSeen: { type: Date },
+      lastUpdate: { type: Date }
     }
   },
-  title: { type: String },
-  imageUrl: { type: String },
-  timestamps: {
-    firstSeen: { type: Date },
-    lastUpdate: { type: Date }
-  },
-  reviews: {
-    total: { type: Number, default: 0 },
-    critical: { type: Number, default: null },
-    count: {
-      inactive: { type: Number, default: 0 },
-      active: { type: Number, default: 0 },
-      pending: { type: Number, default: 0 },
-      refused: { type: Number, default: 0 },
-      removed: { type: Number, default: 0 }
+  {
+    methods: {
+      async notifyDataforseoAmazonReviews(reviewRequest) {
+        await this.populateFields();
+      },
+      async populateFields() {
+        let needSaved = false;
+
+        // basic
+        let _basic = await DataforseoAmazonReviews.findOne({
+          "request.asinId": this.asinId,
+          "result.complete": true
+        }).sort({
+          "timestamps.completed": -1
+        });
+        let basic = _basic?.result?.response;
+
+        if (basic?.title && basic?.title != this.title) {
+          this.title = basic?.title;
+          needSaved = true;
+        }
+
+        if (basic?.image?.image_url && basic?.image?.image_url != this.imageUrl) {
+          this.imageUrl = basic?.image?.image_url;
+          needSaved = true;
+        }
+
+        if (basic?.image?.alt && basic?.image?.alt != this.imageAlt) {
+          this.imageAlt = basic?.image?.alt;
+          needSaved = true;
+        }
+
+        if (
+          (basic?.rating?.value && basic?.rating?.value != this.rating.value) ||
+          (basic?.rating?.votes_count && basic?.rating?.votes_count != this.rating.votes_count) ||
+          (basic?.rating?.rating_max && basic?.rating?.rating_max != this.rating.rating_max)
+        ) {
+          this.rating.value = basic?.rating?.value;
+          this.rating.votes_count = basic?.rating?.votes_count;
+          this.rating.rating_max = basic?.rating?.rating_max;
+          needSaved = true;
+        }
+
+        // critical
+        let _critical = await DataforseoAmazonReviews.findOne({
+          "request.asinId": this.asinId,
+          "result.complete": true,
+          "result.task.data.filter_by_star": "critical"
+        }).sort({
+          "timestamps.completed": -1
+        });
+        let critical = _critical?.result?.response;
+
+        if (critical?.reviews_count >= 0 && critical?.reviews_count != this.reviews.critical) {
+          this.reviews.critical = +critical?.reviews_count;
+          needSaved = true;
+        }
+
+        if (needSaved) {
+          await this.save();
+        }
+      }
     }
   }
-});
+);
 
 AmazonAsinsSchema.pre("save", async function (next) {
   const doc = this;
@@ -217,7 +289,14 @@ AmazonAsinsSchema.pre("save", async function (next) {
 });
 
 AmazonAsinsSchema.post("init", async function (doc) {
+  if (doc?.rating?.value == null) {
+    // basic
+    await dataforseoAmazonReviewsEnsure(doc?.asinId, {
+      depth: 10
+    });
+  }
   if (doc?.reviews?.critical == null) {
+    // critical
     await dataforseoAmazonReviewsEnsure(doc?.asinId, {
       depth: 10,
       filterByStar: "critical"
@@ -317,78 +396,97 @@ const AmazonReviews = model(cAmazonReviews, AmazonReviewsSchema);
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // DataforseoAmazonReviews
 
-const DataforseoAmazonReviewsSchema = new Schema({
-  request: {
-    // http
-    apiUrl: { type: String },
-    fetchUrl: { type: String },
-    body: { type: Object },
-    params: { type: Object },
-    response: { type: Object },
-    // data
-    options: { type: Object },
-    optionsKey: { type: String, required: true, index: { unique: false } },
-    // task
-    asinId: { type: String, required: true },
-    taskId: { type: String, required: true }
-  },
-  result: {
-    response: { type: Object },
-    complete: { type: Boolean, default: false },
-    cache: { type: Schema.Types.ObjectId, ref: cDataforseoCallbackCaches }
-  },
-  // timestamps
-  timestamps: {
-    created: { type: Date, required: true },
-    completed: { type: Date }
-  }
-});
-
 const extractReviewId = (i) => /\/([A-Z0-9]{10,})/.exec(i)?.[1];
 
-DataforseoAmazonReviewsSchema.pre("save", async function (next) {
-  const doc = this;
-  console.log("DataforseoAmazonReviewsSchema.preSave", doc?._id);
-  console.log("checking..", doc.isModified(), doc?.result?.complete);
-  if (doc.isModified() && doc?.result?.complete) {
-    // AmazonAsins
-    const asinId = doc?.result?.response?.asin;
-    if (doc?.result?.response?.title) {
-      await AmazonAsins.updateOne({ asinId }, { $set: { title: doc?.result?.response?.title } });
+const DataforseoAmazonReviewsSchema = new Schema(
+  {
+    request: {
+      // http
+      // apiUrl: { type: String },
+      // fetchUrl: { type: String },
+      // body: { type: Object },
+      params: { type: Object },
+      response: { type: Object },
+      // data
+      options: { type: Object },
+      optionsKey: { type: String, required: true, index: { unique: false } },
+      // task
+      asinId: { type: String, required: true },
+      taskId: { type: String, required: true }
+    },
+    result: {
+      task: { type: Object },
+      response: { type: Object },
+      complete: { type: Boolean, default: false },
+      cache: { type: Schema.Types.ObjectId, ref: cDataforseoCallbackCaches }
+    },
+    // timestamps
+    timestamps: {
+      created: { type: Date, required: true },
+      completed: { type: Date }
     }
-    if (doc?.result?.response?.image?.image_url) {
-      await AmazonAsins.updateOne({ asinId }, { $set: { imageUrl: doc?.result?.response?.image?.image_url } });
-    }
-    if (doc?.result?.response?.reviews_count >= 0 && doc?.request?.options?.filterByStar == "critical") {
-      await AmazonAsins.updateOne({ asinId }, { $set: { "reviews.critical": doc?.result?.response?.reviews_count } });
-    }
-    // AmazonReviews
-    if (Array.isArray(doc?.result?.response?.items)) {
-      for await (let item of doc.result.response.items) {
-        let gId = extractReviewId(item?.url);
-        let review = await AmazonReviews.findOne({ asinId, gId });
-        if (!review) {
-          try {
-            review = await AmazonReviews.create({
-              asinId,
-              gId,
-              rawObject: item,
-              timestamps: {
-                firstSeen: new Date()
+  },
+  {
+    methods: {
+      async notifyCallbackCache(cache) {
+        await this.populateResponse();
+        await this.populateReviews();
+      },
+      async populateResponse() {
+        if (!this.result.complete) {
+          // query
+          const cache = await DataforseoCallbackCaches.findOne({
+            "body.tasks.id": this.request.taskId,
+            "body.tasks.result.asin": this.request.asinId
+          }).sort({ "body.tasks.result.datetime": -1 });
+          const task = cache?.body?.tasks?.[0];
+          const response = task?.result?.[0];
+          // update
+          this.result.task = task;
+          this.result.response = response;
+          this.result.complete = true; // result.asin exists
+          this.result.cache = cache?._id;
+          this.timestamps.completed = response?.datetime;
+          this.markModified("result");
+          await this.save();
+        }
+      },
+      async populateReviews() {
+        if (this.result.complete) {
+          // AmazonReviews
+          if (Array.isArray(this?.result?.response?.items)) {
+            for await (let item of this.result.response.items) {
+              let asinId = this.request.asinId;
+              let gId = extractReviewId(item?.url);
+              let review = await AmazonReviews.findOne({ asinId, gId });
+              if (!review) {
+                // create
+                try {
+                  review = await AmazonReviews.create({
+                    asinId,
+                    gId,
+                    rawObject: item,
+                    timestamps: {
+                      firstSeen: new Date()
+                    }
+                  });
+                } catch (err) {
+                  console.error(err);
+                }
               }
-            });
-            console.log(review);
-          } catch (err) {
-            console.error(err);
+            }
           }
         }
       }
     }
   }
-  next();
-});
+);
 
-// DataforseoAmazonReviewsSchema.post("save", async function (doc) {});
+DataforseoAmazonReviewsSchema.post("save", async function (doc) {
+  // AmazonAsins
+  const asin = await AmazonAsins.findOne({ asinId: doc.request.asinId });
+  await asin?.notifyDataforseoAmazonReviews?.(doc);
+});
 
 const DataforseoAmazonReviews = model(cDataforseoAmazonReviews, DataforseoAmazonReviewsSchema);
 
@@ -408,23 +506,14 @@ DataforseoCallbackCachesSchema.post("save", async function (doc) {
     for await (let task of doc.body.tasks) {
       if (Array.isArray(task?.result)) {
         for await (let result of task.result) {
-          // must have an asin
-          // must have a numeric reviews count
-          // must have an image
-          const complete = !!(result?.asin && result?.reviews_count >= 0 && result?.image?.image_url);
-          if (!complete) continue;
-          // ama
-          const review = await DataforseoAmazonReviews.findOne({
-            "request.asinId": result?.asin,
-            "request.taskId": task?.id
-          });
-          if (!review) continue;
-          review.result.response = result;
-          review.result.complete = complete;
-          review.cache = doc?._id;
-          review.timestamps.completed = new Date(result?.datetime);
-          review.markModified("result");
-          await review.save();
+          // DataforseoAmazonReviews
+          if (result?.asin && task?.id) {
+            const review = await DataforseoAmazonReviews.findOne({
+              "request.asinId": result?.asin,
+              "request.taskId": task?.id
+            });
+            await review?.notifyCallbackCache?.(doc);
+          }
         }
       }
     }

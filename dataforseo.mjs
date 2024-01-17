@@ -1,5 +1,14 @@
 import { DataforseoAmazonReviews, DataforseoCallbackCaches, AsinEstimates } from "./models.mjs";
 
+let authHeader = null;
+
+function mkAuthHeader() {
+  const authUser = process.env.DATAFORSEO_USER;
+  const authPass = process.env.DATAFORSEO_PASS;
+  const authToken = Buffer.from(`${authUser}:${authPass}`).toString("base64");
+  return (authHeader = `Basic ${authToken}`);
+}
+
 function sortedKV(i) {
   return Object.keys(i)
     .map((k) => `${k}:${i[k]}`)
@@ -7,102 +16,85 @@ function sortedKV(i) {
     .join(",");
 }
 
+async function dataforseoAmazonReviewsCache(asinId, optionsKey, maxAge) {
+  return await DataforseoAmazonReviews.findOne({
+    "request.asinId": asinId,
+    "request.optionsKey": optionsKey,
+    "timestamps.created": { $gt: maxAge }
+  });
+}
+
+async function dataforseoAmazonReviewsCheck(taskId) {
+  try {
+    authHeader ??= mkAuthHeader();
+    await DataforseoCallbackCaches.create({
+      timestamp: new Date(),
+      body: await (
+        await fetch(`https://api.dataforseo.com/v3/merchant/amazon/reviews/task_get/advanced/${taskId}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: authHeader
+          }
+        })
+      ).json()
+    });
+  } catch (err) {
+    console.error(err);
+  }
+  return null;
+}
+
 async function dataforseoAmazonReviewsEnsure(asinId, options = {}) {
-  // Use an existing request when possible.
-  // Manually retrieve if cache incomplete.
-  // Fallback to create new request.
-
-  const authUser = process.env.DATAFORSEO_USER;
-  const authPass = process.env.DATAFORSEO_PASS;
-  const authToken = Buffer.from(`${authUser}:${authPass}`).toString("base64");
-  const authHeader = `Basic ${authToken}`;
   const callbackHost = process.env.DATAFORSEO_CBHN;
-  const apiUrl = "https://api.dataforseo.com/v3/merchant/amazon/reviews/task_post";
-
   const optionsKey = sortedKV(options);
 
   const maxAge = new Date();
   maxAge.setHours(maxAge.getHours() - 48);
 
-  // cache
-  let doc = await DataforseoAmazonReviews.findOne({
-    "request.asinId": asinId,
-    "request.optionsKey": optionsKey,
-    "timestamps.created": { $gt: maxAge }
-  });
+  let reviewRequest;
 
-  if (doc) {
-    try {
-      // incomplete
-      if (doc?.request?.taskId && !doc?.result?.complete) {
-        await DataforseoCallbackCaches.create({
-          timestamp: new Date(),
-          body: await (
-            await fetch(
-              `https://api.dataforseo.com/v3/merchant/amazon/reviews/task_get/advanced/${doc?.request?.taskId}`,
-              {
-                method: "GET",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: authHeader
-                }
-              }
-            )
-          ).json()
-        });
-      }
-    } catch (err) {
-      console.error(err);
-    }
-    // cache
-    return doc;
+  // cache
+  reviewRequest = await dataforseoAmazonReviewsCache(asinId, optionsKey, maxAge);
+
+  // check
+  if (reviewRequest?.request?.taskId && !reviewRequest?.result?.complete) {
+    await dataforseoAmazonReviewsCheck(reviewRequest?.request?.taskId);
   }
 
+  if (reviewRequest) return reviewRequest;
+
   // create
-  const urlObj = new URL(apiUrl);
+  const urlObj = new URL("https://api.dataforseo.com/v3/merchant/amazon/reviews/task_post");
   urlObj.searchParams.set("postback_data", "advanced");
-  urlObj.searchParams.set(
-    "postback_url",
-    encodeURIComponent(`https://${callbackHost}/api/dataforseo/callback/data?id=$id&${options?.searchOptions ?? ""}`)
-  );
+  const callbackUrl = `https://${callbackHost}/api/dataforseo/callback/data?id=$id&${options?.searchOptions ?? ""}`;
+  urlObj.searchParams.set("postback_url", encodeURIComponent(callbackUrl));
 
-  const fetchUrl = urlObj.toString();
-  const fetchParams = Object.fromEntries(urlObj.searchParams.entries());
-
-  const bodyObj = [
-    {
-      // docs: https://docs.dataforseo.com/v3/merchant/amazon/reviews/task_post/?bash
-      // note: ${reviews_count} adjusts for filterByStar
-      asin: asinId,
-      language_code: options?.languageCode ?? "en_US",
-      location_code: options?.locationCode ?? 2840,
-      depth: options?.reviewDepth ?? 10,
-      filter_by_star: options?.filterByStar, // "all_stars" "critical"
-      reviewer_type: options?.reviewerType, // "all_reviews"
-      sort_by: options?.sortBy, // "helpful"
-      media_type: options?.mediaType // "all_contents
-    }
-  ];
+  authHeader ??= mkAuthHeader();
 
   const response = await (
-    await fetch(fetchUrl, {
+    await fetch(urlObj.toString(), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: authHeader
       },
-      body: JSON.stringify(bodyObj)
+      body: JSON.stringify([
+        {
+          // docs: https://docs.dataforseo.com/v3/merchant/amazon/reviews/task_post/?bash
+          // note: ${reviews_count} adjusts for filterByStar
+          asin: asinId,
+          language_code: options?.languageCode ?? "en_US",
+          location_code: options?.locationCode ?? 2840,
+          depth: options?.reviewDepth ?? 10,
+          filter_by_star: options?.filterByStar, // "all_stars" "critical"
+          reviewer_type: options?.reviewerType, // "all_reviews"
+          sort_by: options?.sortBy, // "helpful"
+          media_type: options?.mediaType // "all_contents
+        }
+      ])
     })
   ).json();
-
-  // { tasks: [{
-  //       id: "01030526-7061-0415-0000-84b2b7a1e074",
-  //       status_code: 40501, // failure
-  //       status_code: 20100, // success
-  //       status_message: "Task Created.",
-  //       time: "0.0143 sec.",
-  //       cost: 0.00075,
-  //       result_count: 0
 
   const taskId = response?.tasks?.[0]?.id;
 
@@ -115,12 +107,9 @@ async function dataforseoAmazonReviewsEnsure(asinId, options = {}) {
     throw new Error("Invalid response");
   }
 
-  doc = await DataforseoAmazonReviews.create({
+  reviewRequest = await DataforseoAmazonReviews.create({
     request: {
-      apiUrl,
-      fetchUrl,
-      body: bodyObj,
-      params: fetchParams,
+      params: Object.fromEntries(urlObj.searchParams.entries()),
       response,
       options,
       optionsKey,
@@ -132,7 +121,7 @@ async function dataforseoAmazonReviewsEnsure(asinId, options = {}) {
     }
   });
 
-  return doc;
+  return reviewRequest;
 }
 
 // async function dataforseoAmazonReviewsTaskCreate(asinId, options = {}) {
@@ -215,6 +204,8 @@ async function dataforseoAmazonReviewsTaskCallback(req, res, next) {
 
 export {
   //
+  dataforseoAmazonReviewsCache,
+  dataforseoAmazonReviewsCheck,
   dataforseoAmazonReviewsEnsure,
   // dataforseoAmazonReviewsTaskCreate,
   // dataforseoAmazonReviewsTaskRetrieve,
