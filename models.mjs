@@ -62,6 +62,7 @@ const MembersSchema = new Schema(
     }
   },
   {
+    timestamps: true,
     toObject: { transform: memberTransform },
     toJSON: { transform: memberTransform }
   }
@@ -134,48 +135,57 @@ const Organizations = model(cOrganizations, OrganizationsSchema);
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Threads
 
-const ThreadsSchema = new Schema({
-  title: { type: String },
-  timestamps: {
-    created: { type: Date, required: true }
+const ThreadsSchema = new Schema(
+  {
+    title: { type: String },
+    timestamps: {
+      created: { type: Date, required: true }
+    },
+    organization: { type: Schema.Types.ObjectId, ref: cOrganizations },
+    member: { type: Schema.Types.ObjectId, ref: cMembers }
   },
-  organization: { type: Schema.Types.ObjectId, ref: cOrganizations },
-  member: { type: Schema.Types.ObjectId, ref: cMembers }
-});
+  { timestamps: true }
+);
 
 const Threads = model(cThreads, ThreadsSchema);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Messages
 
-const MessagesSchema = new Schema({
-  message: { type: String, required: true },
-  timestamps: {
-    created: { type: Date, required: true }
+const MessagesSchema = new Schema(
+  {
+    message: { type: String, required: true },
+    timestamps: {
+      created: { type: Date, required: true }
+    },
+    member: { type: Schema.Types.ObjectId, ref: cMembers },
+    thread: { type: Schema.Types.ObjectId, ref: cThreads }
   },
-  member: { type: Schema.Types.ObjectId, ref: cMembers },
-  thread: { type: Schema.Types.ObjectId, ref: cThreads }
-});
+  { timestamps: true }
+);
 
 const Messages = model(cMessages, MessagesSchema);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Notifications
 
-const NotificationsSchema = new Schema({
-  title: { type: String },
-  message: { type: String },
-  priority: {
-    type: String,
-    enum: ["normal", "high"],
-    default: "normal"
+const NotificationsSchema = new Schema(
+  {
+    title: { type: String },
+    message: { type: String },
+    priority: {
+      type: String,
+      enum: ["normal", "high"],
+      default: "normal"
+    },
+    timestamps: {
+      created: { type: Date, required: true }
+    },
+    organization: { type: Schema.Types.ObjectId, ref: cOrganizations },
+    member: { type: Schema.Types.ObjectId, ref: cMembers }
   },
-  timestamps: {
-    created: { type: Date, required: true }
-  },
-  organization: { type: Schema.Types.ObjectId, ref: cOrganizations },
-  member: { type: Schema.Types.ObjectId, ref: cMembers }
-});
+  { timestamps: true }
+);
 
 const Notifications = model(cNotifications, NotificationsSchema);
 
@@ -244,6 +254,7 @@ const AmazonAsinsSchema = new Schema(
     requests: { type: Object, default: {} }
   },
   {
+    timestamps: true,
     toObject: { transform: asinTransform },
     toJSON: { transform: asinTransform },
     methods: {
@@ -508,6 +519,7 @@ const AmazonReviewsSchema = new Schema(
     }
   },
   {
+    timestamps: true,
     toObject: { transform: amazonReviewTransform },
     toJSON: { transform: amazonReviewTransform },
     methods: {

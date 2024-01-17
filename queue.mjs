@@ -6,6 +6,7 @@ const timers = {
 };
 
 async function queueBegin() {
+  return;
   for (let name in timers) {
     timers[name].timerId = setTimeout(queueTick, 0, name);
   }

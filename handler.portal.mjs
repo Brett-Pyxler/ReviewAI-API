@@ -184,6 +184,14 @@ async function apiVersion(req, res, next) {
   }
 }
 
+async function apiSignup(req, res, next) {
+  try {
+    res.json({});
+  } catch (err) {
+    res.status(401).json({ message: String(err) });
+  }
+}
+
 export {
   asinsOverviewLookup,
   asinsOverviewEnumerate,
@@ -192,5 +200,6 @@ export {
   asinsReviewsEnumerate,
   asinsReviewsPaginate,
   apiSearch,
-  apiVersion
+  apiVersion,
+  apiSignup
 };

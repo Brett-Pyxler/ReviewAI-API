@@ -83,6 +83,8 @@ server.post("/api/search", authRouteRequire, apiSearch);
 
 server.all("/api/version", apiVersion);
 
+// server.all("/api/signup", apiSignup);
+
 // Organizations
 
 // Members
@@ -256,10 +258,10 @@ if (process.env.WORD_TEST) {
 if (process.env.DFS_TEST) {
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   dbConnect().then(async function () {
-    let doc = await AmazonAsins.findOne({ asinId: "B07VWKKBPY" });
-    // doc.dataforseo.approved = true;
-    // await doc.save();
     while (1) {
+      let doc = await AmazonAsins.findOne({ asinId: "B07VWKKBPY" });
+      // doc.dataforseo.approved = true;
+      // await doc.save();
       let r = await doc.onTick();
       console.log({ r });
       if (!r) break;
@@ -270,4 +272,28 @@ if (process.env.DFS_TEST) {
     }
     process.exit();
   });
+}
+
+import nodemailer from "nodemailer";
+
+if (process.env.MAIL_TEST) {
+  let transporter = nodemailer.createTransport({
+    service: "Outlook365",
+    auth: {
+      user: "noreply@pyxler.com",
+      pass: process.env.EMAIL_PASSWORD
+    }
+  });
+  transporter.sendMail(
+    {
+      from: "noreply <noreply@pyxler.com>",
+      to: "kristopher@rawchemistry.com",
+      subject: `testest ${Date.now()}`,
+      text: "plaintext",
+      html: "<b>html</b>"
+    },
+    function (error, success) {
+      console.log({ error, success });
+    }
+  );
 }
