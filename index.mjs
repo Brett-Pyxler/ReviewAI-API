@@ -26,14 +26,15 @@ import { dfsARScrapeCallback } from "./dataforseo.mjs";
 
 import {
   adminSearch,
-  adminCreateOrganization,
-  adminOrganizationGet,
-  adminOrganizationsEnumerate,
-  adminMembersEnumerate,
-  adminOrganizationAsinsAdd,
+  adminOrganizationCreate,
   adminOrganizationMembersAdd,
+  adminOrganizationAsinsAdd,
+  adminOrganizationsEnumerate,
+  adminOrganizationGet,
+  adminMemberChangePassword,
+  adminMembersEnumerate,
   adminMemberGet,
-  adminMemberChangePassword
+  adminAmazonAsinGet
 } from "./handler.admin.mjs";
 
 import { authLogin, authLogout, authRetrieve, authRouteDecode, authRouteRequire } from "./authentication.mjs";
@@ -89,13 +90,15 @@ server.post("/api/admin/organization/:id/members/add", authRouteRequire, adminOr
 
 server.get("/api/admin/organization/:id", authRouteRequire, adminOrganizationGet);
 
-server.post("/api/admin/organization", authRouteRequire, adminCreateOrganization);
+server.post("/api/admin/organization", authRouteRequire, adminOrganizationCreate);
 
 server.get("/api/admin/organizations/enumerate", authRouteRequire, adminOrganizationsEnumerate);
 
 server.get("/api/admin/members/enumerate", authRouteRequire, adminMembersEnumerate);
 
 server.get("/api/admin/member/:id/", authRouteRequire, adminMemberGet);
+
+server.get("/api/admin/asin/:id/", authRouteRequire, adminAmazonAsinGet);
 
 server.patch("/api/admin/member/:id/password", authRouteRequire, adminMemberChangePassword);
 

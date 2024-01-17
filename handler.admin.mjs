@@ -44,7 +44,7 @@ async function adminSearch(req, res, next) {
   }
 }
 
-async function adminCreateOrganization(req, res, next) {
+async function adminOrganizationCreate(req, res, next) {
   try {
     const preferredName = req.query?.preferredName || req.body?.preferredName || null;
     if (!req.member?.administrator?.fullAccess) {
@@ -205,6 +205,23 @@ async function adminMemberGet(req, res, next) {
   }
 }
 
+async function adminAmazonAsinGet(req, res, next) {
+  try {
+    const asinId = req.params?.id || null;
+    if (!req.member?.administrator?.fullAccess) {
+      throw new Error("Permission denied.");
+    }
+    let response = await AmazonAsins.findById(asinId);
+    if (!response) {
+      throw new Error("Unknown asin.");
+    }
+    // response
+    res.json({ asin: response });
+  } catch (err) {
+    res.status(401).json({ message: String(err) });
+  }
+}
+
 async function adminMemberChangePassword(req, res, next) {
   try {
     const memberId = req.params?.id || null;
@@ -227,12 +244,13 @@ async function adminMemberChangePassword(req, res, next) {
 
 export {
   adminSearch,
-  adminCreateOrganization,
-  adminOrganizationGet,
-  adminOrganizationsEnumerate,
-  adminMembersEnumerate,
+  adminOrganizationCreate,
   adminOrganizationMembersAdd,
   adminOrganizationAsinsAdd,
+  adminOrganizationsEnumerate,
+  adminOrganizationGet,
+  adminMemberChangePassword,
+  adminMembersEnumerate,
   adminMemberGet,
-  adminMemberChangePassword
+  adminAmazonAsinGet
 };
