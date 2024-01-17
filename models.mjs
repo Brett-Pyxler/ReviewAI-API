@@ -530,14 +530,16 @@ const AmazonReviewsSchema = new Schema(
       async openaiCheck() {
         console.log("AmazonReviews.openaiCheck()", String(this._id), this.openai?.latest?.threadId, this.openai?.latest?.threatValue);
         const assistantId = "asst_tHyw4fctPkNN22LPJxZw9WrZ";
-        if (process.env.ENVIRONMENT == "dev") {
-          // restricted region
-          return;
-        }
         if (this.openai?.latest?.retryCount >= 5) {
+          await AmazonReviews.findByIdAndUpdate(this._id, {
+            $pull: { requestsPending: this.openai?.latest?.threadId }
+          });
           return;
         }
         if (!this.rawObject?.review_text) {
+          await AmazonReviews.findByIdAndUpdate(this._id, {
+            $pull: { requestsPending: this.openai?.latest?.threadId }
+          });
           return;
         }
         if (this.openai?.latest?.threadId && this.openai?.latest?.textContent) {
@@ -568,7 +570,6 @@ const AmazonReviewsSchema = new Schema(
               $inc: { "openai.latest.retryCount": 1 }
             });
           }
-          return true;
         } else {
           // post
           console.log("oaiCreateAndRun()");
@@ -591,7 +592,6 @@ const AmazonReviewsSchema = new Schema(
               $inc: { "openai.latest.retryCount": 1 }
             });
           }
-          return true;
         }
       }
     }
