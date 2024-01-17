@@ -387,6 +387,9 @@ AmazonAsinsSchema.post("init", async function (doc) {
       filterByStar: "critical"
     });
   }
+  if (!doc?.title) {
+    await this.populateFields();
+  }
   // recovery
   await doc.recoverAmazonReviews();
 });
@@ -633,10 +636,8 @@ const DataforseoARScrapesSchema = new Schema(
 
 DataforseoARScrapesSchema.post("save", async function (doc) {
   // AmazonAsins
-  if (this.isModified()) {
-    const asin = await AmazonAsins.findOne({ asinId: doc.request.asinId });
-    await asin?.notifyDataforseoARScrapes?.(doc);
-  }
+  const asin = await AmazonAsins.findOne({ asinId: doc.request.asinId });
+  await asin?.notifyDataforseoARScrapes?.(doc);
 });
 
 const DataforseoARScrapes = model(cDataforseoARScrapes, DataforseoARScrapesSchema);
