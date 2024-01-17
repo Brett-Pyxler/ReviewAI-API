@@ -1,5 +1,6 @@
 import { model, Schema } from "mongoose";
 import { dfsARScrapesEnsure } from "./dataforseo.mjs";
+import { oaiCreateAndRun, oaiThreadRetrieve } from "./openai.mjs";
 
 const cMembers = "members";
 const cOrganizations = "organizations";
@@ -215,14 +216,12 @@ const AmazonAsinsSchema = new Schema(
     // dataforseo: {
     //   approved: { type: Boolean, default: false }
     // },
-    // ai: {
-    //   openai: {
-    //     approved: { type: Boolean, default: false }
-    //   },
-    //   google: {
-    //     approved: { type: Boolean, default: false }
-    //   }
+    // openai: {
+    //   approved: { type: Boolean, default: false }
     // },
+    // google: {
+    //   approved: { type: Boolean, default: false }
+    // }
     timestamps: {
       firstSeen: { type: Date },
       lastUpdate: { type: Date }
@@ -396,44 +395,111 @@ const AmazonAsins = model(cAmazonAsins, AmazonAsinsSchema);
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // AmazonReviews
 
-const AmazonReviewsSchema = new Schema({
-  gId: {
-    type: String,
-    required: true,
-    index: {
-      unique: true
+function amazonReviewTransform(doc, ret, options) {
+  ret.openai = Object.assign({
+    latest: {
+      textContent: ret?.openai?.latest?.textContent
     }
+  });
+  return ret;
+}
+
+const AmazonReviewsSchema = new Schema(
+  {
+    gId: {
+      type: String,
+      required: true,
+      index: {
+        unique: true
+      }
+    },
+    asinId: {
+      type: String,
+      required: true,
+      index: {
+        unique: false
+      }
+    },
+    status: {
+      type: String,
+      enum: [
+        "inactive", // not started
+        "active", // before complaintId
+        "pending", // after complaintId
+        "refused", // complaint failure
+        "removed" // complaint success
+      ],
+      default: "inactive"
+    },
+    rawObject: { type: Object },
+    timestamps: {
+      firstSeen: { type: Date, required: true },
+      lastUpdate: { type: Date }
+    },
+    complaintId: {
+      type: String,
+      default: null
+    },
+    openai: {
+      latest: {
+        // query
+        assistantId: { type: Object },
+        threadId: { type: Object },
+        threadObject: { type: Object },
+        // response
+        threadMessages: { type: Object },
+        responseObject: { type: Object },
+        textContent: { type: String },
+        //
+        retryCount: { type: Number, default: 0 }
+      },
+      history: [{ type: Object }]
+    },
+    // todo: is there a use-case for asin ref?
+    asin: { type: Schema.Types.ObjectId, ref: AmazonAsins }
   },
-  asinId: {
-    type: String,
-    required: true,
-    index: {
-      unique: false
+  {
+    toObject: { transform: amazonReviewTransform },
+    toJSON: { transform: amazonReviewTransform },
+    methods: {
+      async openaiCheck() {
+        const assistantId = "asst_tHyw4fctPkNN22LPJxZw9WrZ";
+        if (this.openai?.latest?.retryCount >= 5) {
+          return;
+        }
+        if (!this.openai?.latest?.threadId) {
+          let r = await oaiCreateAndRun(this.rawObject?.review_text, assistantId, {
+            gId: this.gId,
+            asinId: this.asinId
+          });
+          if (r?.threadId) {
+            this.openai.latest.assistantId = r?.assistantId;
+            this.openai.latest.threadId = r?.threadId;
+            this.openai.latest.threadObject = r?.threadObject;
+            this.openai.history.push(r);
+          } else {
+            this.openai.latest.retryCount += 1;
+          }
+          await this.save();
+          return true;
+        }
+        if (!this.openai?.latest?.textContent && this.openai?.latest?.threadId) {
+          let r = await oaiThreadRetrieve(this.openai?.latest?.threadId, 1);
+          if (r?.textContent) {
+            this.openai.latest.threadMessages = r?.threadMessages;
+            this.openai.latest.responseObject = r?.responseObject;
+            this.openai.latest.textContent = r?.textContent;
+            this.openai.history.push(r);
+          } else {
+            this.openai.latest.retryCount += 1;
+          }
+          await this.save();
+          return true;
+        }
+      }
     }
-  },
-  status: {
-    type: String,
-    enum: [
-      "inactive", // not started
-      "active", // before complaintId
-      "pending", // after complaintId
-      "refused", // complaint failure
-      "removed" // complaint success
-    ],
-    default: "inactive"
-  },
-  rawObject: { type: Object },
-  timestamps: {
-    firstSeen: { type: Date, required: true },
-    lastUpdate: { type: Date }
-  },
-  complaintId: {
-    type: String,
-    default: null
-  },
-  // todo: is there a use-case for asin ref?
-  asin: { type: Schema.Types.ObjectId, ref: AmazonAsins }
-});
+  }
+);
 
 AmazonReviewsSchema.pre("save", async function (next) {
   const doc = this;

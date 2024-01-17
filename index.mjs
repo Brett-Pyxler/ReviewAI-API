@@ -38,7 +38,9 @@ import {
 
 import { authLogin, authLogout, authRetrieve, authRouteDecode, authRouteRequire } from "./authentication.mjs";
 
-import { Members, Organizations, AmazonAsins } from "./models.mjs";
+import { Members, Organizations, AmazonAsins, AmazonReviews } from "./models.mjs";
+
+import { oaiCreateAndRun, oaiThreadRetrieve } from "./openai.mjs";
 
 export const server = express();
 
@@ -200,5 +202,28 @@ if (process.env.REVALIDATE) {
     // }
     // console.log("done.");
     // process.exit();
+  });
+}
+
+if (process.env.OPENAI_TEST) {
+  dbConnect().then(async function () {
+    let docs = await AmazonReviews.find({
+      "rawObject.review_text": { $exists: true }
+    });
+    console.log("length:", docs?.length);
+    let count = 0;
+    for await (let doc of docs) {
+      console.log(">>>", String(doc?._id), doc?.gId);
+      if (await doc.openaiCheck()) {
+        count++;
+        console.log({ count });
+      }
+      // if (count >= 30) {
+      //   console.log("break.");
+      //   break;
+      // }
+    }
+    console.log("done.");
+    process.exit();
   });
 }
