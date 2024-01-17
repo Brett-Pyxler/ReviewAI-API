@@ -10,7 +10,7 @@ import {
 } from "./dataforseo.mjs";
 
 const asinPattern = /^[0-9A-Z]{10}$/;
-
+const phonePattern = /^\d{3}\-\d{3}\-\d{4}$/;
 const objectPatern = /^[a-z0-9]{24}$/;
 
 function extractPattern(pattern) {
@@ -130,6 +130,54 @@ async function asinTaskGet(req, res, next) {
   }
 }
 
+async function asinTaskPatchPhone(req, res, next) {
+  try {
+    let asinId = extractPattern(
+      asinPattern,
+      req.body?.asin_id,
+      req.body?.asinId,
+      req.query?.asin_id,
+      req.query?.asinId
+    );
+
+    if (!asinId) {
+      throw new Error("invalid asinId");
+    }
+
+    let estimateId = extractPattern(
+      objectPatern,
+      req.body?.estimate_id,
+      req.body?.estimateId,
+      req.query?.estimate_id,
+      req.query?.estimateId
+    );
+
+    if (!estimateId) {
+      throw new Error("invalid estimateId");
+    }
+
+    let phone = req.body?.phone;
+
+    if (!phonePattern.test(phone)) {
+      throw new Error("invalid phone");
+    }
+
+    let doc = await AsinEstimates.findById({ _id: estimateId });
+
+    if (doc?.asinId != asinId) {
+      throw new Error("inputs do not match");
+    }
+
+    doc.alerts.phone = phone;
+    await doc.save();
+
+    return res.json({});
+  } catch (err) {
+    res.status(500).json({ message: String(err) });
+    console.debug(err);
+  }
+}
+
 async function asinTaskCache(asinId) {
   // cache within 7 days
   let d = new Date();
@@ -155,5 +203,6 @@ export {
   //
   asinTaskPost,
   asinTaskGet,
+  asinTaskPatchPhone,
   asinTaskCache
 };

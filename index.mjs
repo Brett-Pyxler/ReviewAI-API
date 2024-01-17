@@ -18,7 +18,8 @@ import {
 import {
   //
   asinTaskPost,
-  asinTaskGet
+  asinTaskGet,
+  asinTaskPatchPhone
 } from "./handlers.mjs";
 
 import {
@@ -37,6 +38,8 @@ server.use(express.json());
 server.use(express.urlencoded({ extended: true }));
 
 server.all("/api/dataforseo/callback/data", amazonReviewsTaskCallback);
+
+server.patch("/api/asin/estimate/task/phone", asinTaskPatchPhone);
 
 server.post("/api/asin/estimate/task", asinTaskPost);
 

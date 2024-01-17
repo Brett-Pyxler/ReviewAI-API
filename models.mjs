@@ -56,6 +56,10 @@ const AsinEstimatesSchema = new Schema({
       timestamp: { type: Date, default: null }
       // timespan: { type: Number, default: null }
     }
+  },
+  alerts: {
+    isComplete: { type: Boolean, default: false },
+    phone: { type: String }
   }
 });
 
@@ -108,6 +112,11 @@ AsinEstimatesSchema.pre("save", async function (next) {
     doc.dataforseo.isComplete = isComplete;
     doc.complete.isComplete = isComplete;
     doc.complete.timestamp = new Date();
+  }
+  // process alerts
+  if (!doc.alerts.isComplete && doc.complete.isComplete && doc.alerts.phone) {
+    // TODO: send twilio alert to ${doc.alerts.phone}
+    // doc.alerts.isComplete = true;
   }
   await next();
 });
