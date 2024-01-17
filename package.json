@@ -2,12 +2,16 @@
   "scripts": {
     "lint": "prettier -w .",
     "check": "prettier -c .",
-    "test": "TEST=true node index.mjs"
+    "exec_test": "EXEC_TEST=true node index.mjs",
+    "conn_test": "CONN_TEST=true node index.mjs"
   },
   "devDependencies": {
     "@aws-sdk/client-dynamodb": "^3.470.0",
     "@aws-sdk/client-s3": "^3.470.0",
+    "dotenv": "^16.3.1",
     "express": "^4.18.2",
+    "mongoose": "^7.6.7",
+    "openai": "^4.21.0",
     "prettier": "^3.1.1",
     "serverless-http": "^3.2.0",
     "uuid": "^9.0.1"

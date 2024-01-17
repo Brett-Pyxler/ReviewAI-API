@@ -26,7 +26,7 @@ jobs:
         run: npm run check
 
       - name: Execution Test
-        run: npm run test
+        run: npm run exec_test
 
       - name: Configure AWS
         uses: aws-actions/configure-aws-credentials@v4
@@ -36,7 +36,7 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Compress
-        run: zip -r -q archive.zip ./index.mjs ./package.json ./node_modules
+        run: zip -r -q archive.zip ./*.mjs ./*.json ./node_modules
 
       - name: Deploy
         run: aws lambda update-function-code --function-name=function1 --zip-file=fileb://./archive.zip

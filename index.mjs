@@ -1,24 +1,14 @@
-import {
-  DynamoDB,
-  DynamoDBClient,
-  ScanCommand,
-  PutItemCommand,
-  GetItemCommand,
-  UpdateItemCommand,
-  DeleteItemCommand,
-} from "@aws-sdk/client-dynamodb";
+import dotenv from "dotenv";
 
-import { S3Client } from "@aws-sdk/client-s3";
+dotenv.config();
+
+import mongoose from "mongoose";
+
+import { Access } from "./models.mjs";
 
 import serverless from "serverless-http";
 
 import express from "express";
-
-import { v4 as uuidv4 } from "uuid";
-
-const dynamoClient = new DynamoDBClient({
-  region: process.env.AWS_REGION || "us-west-2",
-});
 
 const server = express();
 
@@ -32,143 +22,47 @@ server.use(express.urlencoded({ extended: true }));
 
 server.all("*", async function (req, res, next) {
   let payload = {
-    success: true,
-    timestamp: new Date(),
-    request: {
-      method: req.method,
-      url: req.url,
-    },
+    method: req.method,
+    url: req.url,
     ip: req.ip,
+    headers: req.headers,
     query: req.query,
     body: req.body,
-    headers: req.headers,
+    timestamp: new Date(),
     aws: {
       region: process.env.AWS_REGION,
       tz: process.env.TZ,
     },
   };
-
-  // https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/DynamoDB/DocumentClient.html
-  // https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/javascript_dynamodb_code_examples.html
-  // https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/client/dynamodb/
-  const TableName = "Music";
-
-  try {
-    // https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/client/dynamodb/command/PutItemCommand
-    payload.PutItemCommand = "default";
-    payload.PutItemCommand = await dynamoClient.send(
-      new PutItemCommand({
-        TableName: TableName,
-        Item: {
-          _id: { S: uuidv4() },
-          // name: { S: body.name },
-          // price: { S: body.price },
-          ip: { S: req.ip },
-          // headers: { M: req.headers },
-          // datenew: { S: String(new Date()) },
-          // dateepo: { N: Date.now() },
-        },
-        ReturnValues: "ALL_OLD",
-      }),
-    );
-  } catch (err) {
-    payload.PutItemCommand = String(err);
-  }
-
-  try {
-    // https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/client/dynamodb/command/ScanCommand
-    payload.ScanCommand = "default";
-    payload.ScanCommand = await dynamoClient.send(
-      new ScanCommand({
-        TableName: TableName,
-      }),
-    );
-    // {ScanCommand: {
-    //     $metadata: {
-    //       httpStatusCode: 200,
-    //       requestId: "3KLF..AAJG",
-    //       attempts: 1,
-    //       totalRetryDelay: 0,
-    //     },
-    //     Count: 0,
-    //     Items: [],
-    //     ScannedCount: 0}}
-  } catch (err) {
-    payload.ScanCommand = String(err);
-  }
-
-  //   try {
-  //     // https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/client/dynamodb/command/GetItemCommand
-  //     payload.GetItemCommand = "default";
-  //     payload.GetItemCommand = await dynamoClient.send(
-  //       new GetItemCommand({
-  //         Key: {
-  //           Artist: {
-  //             S: "Acme Band",
-  //           },
-  //           SongTitle: {
-  //             S: "Happy Day",
-  //           },
-  //         },
-  //         TableName: TableName,
-  //       }),
-  //     );
-  //   } catch (err) {
-  //     payload.GetItemCommand = String(err);
-  //   }
-
-  //   try {
-  //     // https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/client/dynamodb/command/DeleteItemCommand
-  //     payload.DeleteItemCommand = "default";
-  //     payload.DeleteItemCommand = await dynamoClient.send(
-  //       new DeleteItemCommand({
-  //         TableName: TableName,
-  //         Key: { id: req.body.id },
-  //       }),
-  //     );
-  //   } catch (err) {
-  //     payload.DeleteItemCommand = String(err);
-  //   }
-
-  //   try {
-  //     // https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/client/dynamodb/command/UpdateItemCommand
-  //     payload.UpdateItemCommand = "default";
-  //     payload.UpdateItemCommand = await dynamoClient.send(
-  //       new UpdateItemCommand({
-  //         ExpressionAttributeNames: {
-  //           "#AT": "AlbumTitle",
-  //           "#Y": "Year",
-  //         },
-  //         ExpressionAttributeValues: {
-  //           ":t": {
-  //             S: "Louder Than Ever",
-  //           },
-  //           ":y": {
-  //             N: "2015",
-  //           },
-  //         },
-  //         Key: {
-  //           Artist: {
-  //             S: "Acme Band",
-  //           },
-  //           SongTitle: {
-  //             S: "Happy Day",
-  //           },
-  //         },
-  //         ReturnValues: "ALL_NEW",
-  //         TableName: TableName,
-  //         UpdateExpression: "SET #Y = :y, #AT = :t",
-  //       }),
-  //     );
-  //   } catch (err) {
-  //     payload.UpdateItemCommand = String(err);
-  //   }
-
+  payload.result = await Access.create(payload);
+  payload.scan = await Access.find({}).exec();
   res.json(payload);
 });
 
-export const handler = serverless(server);
+export const handler = async function () {
+  global.mongoose_client = await mongoose.connect(
+    process.env.MONGO_CONNECTION,
+    {
+      user: encodeURIComponent(process.env.MONGO_USERNAME),
+      pass: encodeURIComponent(process.env.MONGO_PASSWORD),
+    },
+  );
+  return serverless(server);
+};
 
-if (process.env.TEST) {
-  handler().then(console.log).catch(console.log);
+if (process.env.EXEC_TEST) {
+  process.exit(0);
+}
+
+if (process.env.CONN_TEST) {
+  handler()
+    .then(async () => {
+      console.log(
+        await mongoose.connection.db.admin().command({
+          listDatabases: 1,
+        }),
+      );
+    })
+    .catch(console.error)
+    .then(process.exit);
 }
