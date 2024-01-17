@@ -30,7 +30,7 @@ async function adminSearch(req, res, next) {
       .exec();
     // find asins
     let asins = await AmazonAsins.find({
-      title: { $regex: pattern, $options: "i" }
+      $or: [{ title: { $regex: pattern, $options: "i" } }, { asinId: { $regex: pattern, $options: "i" } }]
     }).exec();
     // response
     res.json({
