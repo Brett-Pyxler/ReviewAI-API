@@ -253,6 +253,43 @@ const AmazonAsinsSchema = new Schema(
         // initial information
         actions += await this.dfsARScrapesEnsure("initial-default-10", { reviewDepth: 10 });
         actions += await this.dfsARScrapesEnsure("initial-crtical-10", { reviewDepth: 10, filterByStar: "critical" });
+        // if review count > 100:
+        let moreReviews = this.requests?.["initial-default-10"]?.result?.reviews_count > 100;
+        console.log({ moreReviews });
+        if (moreReviews && this.asinId == "B07VWKKBPY") {
+          // get reviews by stars
+          for await (let star of ["one_star", "two_star", "three_star", "four_star", "five_star"]) {
+            let starKey = `bystar-${star}-100`;
+            actions += await this.dfsARScrapesEnsure(starKey, {
+              reviewDepth: 100,
+              filterByStar: star
+            });
+            let moreStars = this.requests?.[starKey]?.result?.reviews_count > 100;
+            console.log({ moreStars });
+            if (moreStars) {
+              // additional by stars
+              for await (let word of [
+                "scent",
+                "smell",
+                "cologne",
+                "smells",
+                "product",
+                "great",
+                "really",
+                "would",
+                "again",
+                "women"
+              ]) {
+                let wordKey = `bystar-${star}-${word}-100`;
+                actions += await this.dfsARScrapesEnsure(wordKey, {
+                  reviewDepth: 100,
+                  filterByStar: star,
+                  filterByKeyword: word
+                });
+              }
+            }
+          }
+        }
         //
         if (this.dataforseo.approved) {
           // find normally visible reviews
@@ -266,15 +303,6 @@ const AmazonAsinsSchema = new Schema(
           actions += await this.dfsARScrapesEnsure("critical-100", { reviewDepth: 100, filterByStar: "critical" });
         }
         //
-        if (this.asinId == "B07VWKKBPY") {
-          for await (let w of ["the", "my", "that", "all", "much", "buy"]) {
-            actions += await this.dfsARScrapesEnsure(`word-test-${w}-100`, { reviewDepth: 100, filterByKeyword: w });
-          }
-          for await (let w of ["one_star", "two_star", "three_star", "four_star", "five_star"]) {
-            actions += await this.dfsARScrapesEnsure(`word-test-${w}-100`, { reviewDepth: 100, filterByStar: w });
-          }
-        }
-        //
         console.log("AmazonAsinsSchema.actions", actions);
         if (!actions) {
           this.queue.order = 0;
@@ -284,23 +312,24 @@ const AmazonAsinsSchema = new Schema(
       },
       async dfsARScrapesEnsure(key, options) {
         console.log("AmazonAsinsSchema.requestEnsure()", String(this?._id), key);
+        options.tag = key;
         if (this.requests?.[key]?.taskId && !this.requests?.[key]?.result?.asin) {
           try {
             Object.assign(this.requests[key], await dfsARScrapesGet(this.requests?.[key]?.taskId));
-          } catch (err) {
-            // todo: errors += 1;
-            console.log(String(err));
             this.markModified("requests");
             await this.save();
             await this.notifyRequestUpdated();
+          } catch (err) {
+            // todo: errors += 1;
+            console.log(String(err));
           }
         } else if (!this.requests?.[key]?.taskId) {
           try {
             this.requests[key] = await dfsARScrapesPost(this.asinId, options);
-          } catch (err) {
-            console.log(String(err));
             this.markModified("requests");
             await this.save();
+          } catch (err) {
+            console.log(String(err));
           }
         } else {
           return 0;

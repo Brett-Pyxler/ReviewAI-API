@@ -52,7 +52,8 @@ async function dfsARScrapesPost(asinId, options = {}) {
           reviewer_type: options?.reviewerType, // *all_reviews avp_only_reviews
           sort_by: options?.sortBy, // *helpful recent
           media_type: options?.mediaType, // *all_contents media_reviews_only
-          filter_by_keyword: options?.filterByKeyword
+          filter_by_keyword: options?.filterByKeyword,
+          tag: options?.tag
         }
       ])
     })

@@ -225,19 +225,30 @@ if (process.env.WORD_TEST) {
   dbConnect().then(async function () {
     let wordMap = {};
     let docs = await AmazonReviews.find({ asinId: "B07VWKKBPY" });
+    let total = docs.length;
+    let invalid = 0;
     for await (let doc of docs) {
-      for (let word of doc?.rawObject?.review_text
+      let text = String(doc?.rawObject?.review_text || "");
+      if (!text) invalid += 1;
+      for (let word of text
         .split(/\b/g)
         .map((x) => x.toLowerCase())
         .filter((x) => /[a-z]/.test(x))
-        .filter((x) => x.length > 1)) {
+        .filter((x) => x.length >= 5)) {
         wordMap[word] ??= 0;
         wordMap[word] += 1;
       }
     }
-    Object.entries(wordMap)
-      .sort(([k1, v1], [k2, v2]) => (v1 < v2 ? -1 : v1 > v2 ? 1 : 0))
-      .map(([k, v]) => console.log(k, "=>", JSON.stringify(v)));
+    let _entries = Object.entries(wordMap).sort(([k1, v1], [k2, v2]) => (v1 < v2 ? -1 : v1 > v2 ? 1 : 0));
+    _entries.map(([k, v]) => console.log(k, "=>", JSON.stringify(v)));
+    console.log({ total, invalid });
+    console.log(
+      "top10:",
+      Array.from(_entries)
+        .reverse()
+        .filter((kv, i) => i < 10)
+        .map(([k, v]) => k)
+    );
     process.exit();
   });
 }
@@ -246,13 +257,16 @@ if (process.env.DFS_TEST) {
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   dbConnect().then(async function () {
     let doc = await AmazonAsins.findOne({ asinId: "B07VWKKBPY" });
-    doc.dataforseo.approved = true;
-    await doc.save();
+    // doc.dataforseo.approved = true;
+    // await doc.save();
     while (1) {
       let r = await doc.onTick();
       console.log({ r });
       if (!r) break;
-      await sleep(30 * 1000);
+      await sleep(10 * 1000);
+    }
+    for (let [k, v] of Object.entries(doc.requests)) {
+      console.log(k, "rating:", JSON.stringify(v?.result?.rating), "reviews:", v?.result?.reviews_count);
     }
     process.exit();
   });
