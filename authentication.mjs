@@ -45,18 +45,21 @@ async function authRouteRequire(req, res, next) {
       throw new Error("Unknown session.");
     }
   } catch (err) {
-    return res
+    res
       .clearCookie("token")
       .status(401)
       .json({ message: String(err) });
+    return;
   }
 
   try {
     // timestamp
+    console.log(req.session);
     req.session.timestamps.lastSeen = new Date();
     await req.member.save();
   } catch (err) {
     res.status(500).json({ message: String(err) });
+    return;
   }
 
   // success

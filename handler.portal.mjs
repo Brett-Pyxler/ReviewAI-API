@@ -174,8 +174,9 @@ async function apiSearch(req, res, next) {
 async function apiVersion(req, res, next) {
   try {
     res.json({
-      version: ["GITHUB_SERVER_URL", "GITHUB_REPOSITORY", "GITHUB_SHA"].reduce((o, c, i) =>
-        Object.assign(o, { [c]: process.env[c] })
+      version: ["GITHUB_SERVER_URL", "GITHUB_REPOSITORY", "GITHUB_SHA"].reduce(
+        (o, c, i) => Object.assign(o, { [c]: process.env[c] }),
+        {}
       )
     });
   } catch (err) {

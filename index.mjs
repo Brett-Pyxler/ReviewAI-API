@@ -81,7 +81,7 @@ server.all("/api/dataforseo/callback/data", dfsARScrapeCallback);
 
 server.post("/api/search", authRouteRequire, apiSearch);
 
-server.all("/api/version", authRouteRequire, apiVersion);
+server.all("/api/version", apiVersion);
 
 // Organizations
 
