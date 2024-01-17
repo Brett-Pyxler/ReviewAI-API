@@ -42,7 +42,7 @@ const AsinEstimatesSchema = new Schema({
       query: { type: Object },
       body: { type: Object },
       headers: { type: Object },
-      cookies: { type: Object },
+      cookies: { type: Object }
     }
   },
   complete: {

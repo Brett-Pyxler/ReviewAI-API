@@ -7,9 +7,11 @@
     "conn_test": "CONN_TEST=true node index.mjs"
   },
   "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.5",
     "cookie-parser": "^1.4.6",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
     "mongoose": "^7.6.7",
     "openai": "^4.21.0",
     "prettier": "^3.1.1",

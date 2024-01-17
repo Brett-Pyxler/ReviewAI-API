@@ -33,8 +33,11 @@ import {
   //
   authCreate,
   authDelete,
-  authRetrieve
-} from "./authentication";
+  authRetrieve,
+  authRouteDecode,
+  authTokenCreate,
+  authTokenDecode
+} from "./authentication.mjs";
 
 const server = express();
 
@@ -78,23 +81,26 @@ server.get(
   asinEstimateTaskGet
 );
 
-server.post(
-  //
-  "/api/auth",
-  authCreate
-);
+// server.post(
+//   //
+//   "/api/auth",
+//   authRouteDecode,
+//   authCreate
+// );
 
-server.delete(
-  //
-  "/api/auth",
-  authDelete
-);
+// server.delete(
+//   //
+//   "/api/auth",
+//   authRouteDecode,
+//   authDelete
+// );
 
-server.all(
-  //
-  "/api/auth",
-  authRetrieve
-);
+// server.all(
+//   //
+//   "/api/auth",
+//   authRouteDecode,
+//   authRetrieve
+// );
 
 server.all(
   //
