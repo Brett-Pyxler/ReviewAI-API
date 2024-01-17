@@ -3,6 +3,14 @@ import express from "express";
 
 const server = express();
 
+server.enable("trust proxy");
+
+server.disable("x-powered-by");
+
+server.use(express.json());
+
+server.use(express.urlencoded({ extended: true }));
+
 server.all("*", function(req,res,next) {
 	res.json({
 		success: true,
