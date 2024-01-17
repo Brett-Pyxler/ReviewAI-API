@@ -14,6 +14,8 @@ import serverless from "serverless-http";
 
 import express from "express";
 
+import { v4 as uuidv4 } from "uuid";
+
 const dynamoClient = new DynamoDBClient({
   region: process.env.AWS_REGION || "us-west-2",
 });
@@ -58,13 +60,13 @@ server.all("*", async function (req, res, next) {
       new PutItemCommand({
         TableName: TableName,
         Item: {
-          // _id: { S: uuidv4() },
+          _id: { S: uuidv4() },
           // name: { S: body.name },
           // price: { S: body.price },
           ip: { S: req.ip },
-          headers: { M: req.headers },
-          datenew: { S: String(new Date()) },
-          dateepo: { N: Date.now() },
+          // headers: { M: req.headers },
+          // datenew: { S: String(new Date()) },
+          // dateepo: { N: Date.now() },
         },
         ReturnValues: "ALL_NEW",
       }),
