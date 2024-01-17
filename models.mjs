@@ -1,6 +1,7 @@
 import { model, Schema } from "mongoose";
 import { dfsARScrapesEnsure } from "./dataforseo.mjs";
 import { oaiCreateAndRun, oaiThreadRetrieve } from "./openai.mjs";
+import OpenAI from "openai";
 
 const cMembers = "members";
 const cOrganizations = "organizations";
@@ -396,11 +397,12 @@ const AmazonAsins = model(cAmazonAsins, AmazonAsinsSchema);
 // AmazonReviews
 
 function amazonReviewTransform(doc, ret, options) {
-  ret.openai = Object.assign({
+  ret.openai = {
     latest: {
-      textContent: ret?.openai?.latest?.textContent
+      textContent: ret?.openai?.latest?.textContent,
+      threatValue: ret?.openai?.latest?.threatValue
     }
-  });
+  };
   return ret;
 }
 
@@ -453,8 +455,12 @@ const AmazonReviewsSchema = new Schema(
         //
         retryCount: { type: Number, default: 0 }
       },
-      history: [{ type: Object }]
+      history: [{ type: Object }],
+      threatValue: { type: Number, default: 0 }
+      // ^ numeric value 0.0 (low) to 1.0 (high)
     },
+    threatValue: { type: Number, default: 0 },
+    // ^ sum of openai.threatValue and google.threatValue
     // todo: is there a use-case for asin ref?
     asin: { type: Schema.Types.ObjectId, ref: AmazonAsins }
   },
@@ -490,6 +496,9 @@ const AmazonReviewsSchema = new Schema(
             this.openai.latest.responseObject = r?.responseObject;
             this.openai.latest.textContent = r?.textContent;
             this.openai.history.push(r);
+            // *** assistantId dependant result
+            this.openai.threatValue = /^true/i.test(this.openai.latest.textContent) ? 0.0 : 1.0;
+            this.threatValue = this.openai.threatValue /* this.google.threatValue */;
           } else {
             this.openai.latest.retryCount += 1;
           }
@@ -515,6 +524,21 @@ AmazonReviewsSchema.post("save", async function (doc) {
   const asin = await AmazonAsins.findOne({ asinId: this.asinId });
   await asin?.syncReviews?.();
 });
+
+// AmazonReviewsSchema.post("init", async function (doc) {
+//   // openai
+//   try {
+//     await doc.openaiCheck();
+//   } catch (err) {
+//     // if (err instanceof OpenAI.RateLimitError) {
+//     //   // ignore
+//     // } else if (err instanceof OpenAI.APIError) {
+//     //   throw err;
+//     // } else {
+//     //   throw err;
+//     // }
+//   }
+// });
 
 const AmazonReviews = model(cAmazonReviews, AmazonReviewsSchema);
 

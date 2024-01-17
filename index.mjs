@@ -214,10 +214,16 @@ if (process.env.OPENAI_TEST) {
     let count = 0;
     for await (let doc of docs) {
       console.log(">>>", String(doc?._id), doc?.gId);
+
       if (await doc.openaiCheck()) {
         count++;
         console.log({ count });
       }
+
+      // doc.openai.threatValue = /^true/i.test(doc.openai.latest.textContent) ? 0.0 : 1.0;
+      // doc.threatValue = doc.openai.threatValue /* this.google.threatValue */;
+      // await doc.save();
+
       // if (count >= 30) {
       //   console.log("break.");
       //   break;
