@@ -173,7 +173,7 @@ async function amazonReviewsTaskCallback(req, res, next) {
     if (req.query?.estimateId) {
       await AsinEstimates.findByIdAndUpdate(req.query?.estimateId, {
         $set: {
-          "dataforseo.callback.response": req.body,
+          "dataforseo.callback.response": Object.assign({}, req.body),
           "dataforseo.callback.timestamp": new Date()
         }
       });
