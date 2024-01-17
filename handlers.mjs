@@ -59,6 +59,7 @@ async function asinTaskPost(req, res, next) {
     });
   } catch (err) {
     res.status(500).json({ message: String(err) });
+    console.debug(err);
   }
 }
 
@@ -84,10 +85,13 @@ async function asinTaskGet(req, res, next) {
       // estimate is incomplete
       let cache = await asinTaskCache(doc.asinId);
       if (cache) {
+        console.debug("cache available");
         // metadata cache is available
-        doc.dataforseo.retrieve.response = cache;
-        doc.dataforseo.retrieve.timestamp = new Date();
-        doc.dataforseo.retrieve.timespan = 0;
+        doc.complete = Object.assign({}, cache.complete);
+        doc.dataforseo = Object.assign({}, cache.dataforseo);
+        doc.set("dataforseo.retrieve.response", "changed");
+        console.debug("set");
+        await doc.save();
       } else if (!doc?.dataforseo?.taskId) {
         // dataforseo task is missing
         let ts = Date.now();
@@ -124,6 +128,7 @@ async function asinTaskGet(req, res, next) {
     });
   } catch (err) {
     res.status(500).json({ message: String(err) });
+    console.debug(err);
   }
 }
 
@@ -138,12 +143,7 @@ async function asinTaskCache(asinId) {
       "complete.isComplete": true,
       "complete.timestamp": { $gte: d }
     },
-    {
-      // projection
-      _id: 1,
-      asinId: 1,
-      complete: 1
-    },
+    null,
     {
       // options
       sort: {

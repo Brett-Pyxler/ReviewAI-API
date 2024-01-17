@@ -84,14 +84,14 @@ AsinEstimatesSchema.pre("save", async function (next) {
     if (!result?.asin) {
       result = Object.assign(
         {},
-        doc.dataforseo.callback.response.tasks?.[0]?.result?.[0]
+        doc?.dataforseo?.callback?.response?.tasks?.[0]?.result?.[0]
       );
     }
     // retrieve respose?
     if (!result?.asin) {
       result = Object.assign(
         {},
-        doc.dataforseo.retrieve.response.tasks?.[0]?.result?.[0]
+        doc?.dataforseo?.retrieve?.response?.tasks?.[0]?.result?.[0]
       );
     }
     // prune reviews from metadata
