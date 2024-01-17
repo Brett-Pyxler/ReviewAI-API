@@ -161,7 +161,7 @@ async function amazonReviewsTaskRetrieve(taskId) {
 
 async function amazonReviewsTaskCallback(req, res, next) {
   try {
-    AccessLogs.create({
+    await AccessLogs.create({
       method: req.method,
       url: req.url,
       ip: req.ip,
@@ -178,8 +178,10 @@ async function amazonReviewsTaskCallback(req, res, next) {
         }
       });
     }
-  } catch (err) {}
-  return res.json({});
+    return res.json({});
+  } catch (err) {
+    return res.json({ message: String(err) });
+  }
 }
 
 export {
