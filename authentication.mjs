@@ -54,7 +54,6 @@ async function authRouteRequire(req, res, next) {
 
   try {
     // timestamp
-    console.log(req.session);
     req.session.timestamps.lastSeen = new Date();
     await req.member.save();
   } catch (err) {

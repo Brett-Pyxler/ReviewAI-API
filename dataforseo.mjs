@@ -94,6 +94,8 @@ async function dfsARScrapesGet(taskId) {
   const result = task?.result?.[0];
 
   if (!result?.asin) {
+    // {"status_code":20000,"status_message":"Ok.","tasks":[{"id":..,"status_code":40602,"status_message":"Task In Queue.",..}]}
+    console.log(JSON.stringify(response));
     throw new Error("Incomplete response");
   }
 

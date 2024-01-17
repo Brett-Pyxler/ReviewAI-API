@@ -57,7 +57,7 @@ const MembersSchema = new Schema(
     // settings: { notifications, .. },
     // avatars: { image_100: { type: Object } }
     timestamps: {
-      firstSeen: { type: Date, required: true },
+      firstSeen: { type: Date },
       lastUpdate: { type: Date }
     }
   },
@@ -182,6 +182,11 @@ const Notifications = model(cNotifications, NotificationsSchema);
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // AmazonAsins
 
+function asinTransform(doc, ret, options) {
+  delete ret.requests;
+  return ret;
+}
+
 function resultSort([k1, v1], [k2, v2]) {
   // oldest to newest
   if (v1.updated < v2.updated) return 1;
@@ -219,9 +224,9 @@ const AmazonAsinsSchema = new Schema(
         removed: { type: Number, default: 0 }
       }
     },
-    // dataforseo: {
-    //   approved: { type: Boolean, default: false }
-    // },
+    dataforseo: {
+      approved: { type: Boolean, default: false }
+    },
     // openai: {
     //   approved: { type: Boolean, default: false }
     // },
@@ -239,6 +244,8 @@ const AmazonAsinsSchema = new Schema(
     requests: { type: Object, default: {} }
   },
   {
+    toObject: { transform: asinTransform },
+    toJSON: { transform: asinTransform },
     methods: {
       async onTick() {
         console.log("AmazonAsinsSchema.onTick()", String(this?._id));
@@ -247,7 +254,7 @@ const AmazonAsinsSchema = new Schema(
         actions += await this.dfsARScrapesEnsure("initial-default-10", { reviewDepth: 10 });
         actions += await this.dfsARScrapesEnsure("initial-crtical-10", { reviewDepth: 10, filterByStar: "critical" });
         //
-        if (false) {
+        if (this.dataforseo.approved) {
           // find normally visible reviews
           // i.e., what visitors would see
           actions += await this.dfsARScrapesEnsure("default-100", { reviewDepth: 100 });
@@ -259,23 +266,42 @@ const AmazonAsinsSchema = new Schema(
           actions += await this.dfsARScrapesEnsure("critical-100", { reviewDepth: 100, filterByStar: "critical" });
         }
         //
+        if (this.asinId == "B07VWKKBPY") {
+          for await (let w of ["the", "my", "that", "all", "much", "buy"]) {
+            actions += await this.dfsARScrapesEnsure(`word-test-${w}-100`, { reviewDepth: 100, filterByKeyword: w });
+          }
+          for await (let w of ["one_star", "two_star", "three_star", "four_star", "five_star"]) {
+            actions += await this.dfsARScrapesEnsure(`word-test-${w}-100`, { reviewDepth: 100, filterByStar: w });
+          }
+        }
+        //
         console.log("AmazonAsinsSchema.actions", actions);
         if (!actions) {
           this.queue.order = 0;
           await this.save();
         }
+        return actions;
       },
       async dfsARScrapesEnsure(key, options) {
         console.log("AmazonAsinsSchema.requestEnsure()", String(this?._id), key);
         if (this.requests?.[key]?.taskId && !this.requests?.[key]?.result?.asin) {
-          Object.assign(this.requests[key], await dfsARScrapesGet(this.requests?.[key]?.taskId));
-          this.markModified("requests");
-          await this.save();
-          await this.notifyRequestUpdated();
+          try {
+            Object.assign(this.requests[key], await dfsARScrapesGet(this.requests?.[key]?.taskId));
+          } catch (err) {
+            // todo: errors += 1;
+            console.log(String(err));
+            this.markModified("requests");
+            await this.save();
+            await this.notifyRequestUpdated();
+          }
         } else if (!this.requests?.[key]?.taskId) {
-          this.requests[key] = await dfsARScrapesPost(this.asinId, options);
-          this.markModified("requests");
-          await this.save();
+          try {
+            this.requests[key] = await dfsARScrapesPost(this.asinId, options);
+          } catch (err) {
+            console.log(String(err));
+            this.markModified("requests");
+            await this.save();
+          }
         } else {
           return 0;
         }
