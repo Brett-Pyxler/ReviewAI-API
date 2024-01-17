@@ -18,7 +18,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: "18"
+          node-version: "20"
 
       - name: Install Dependencies
         run: npm install
@@ -37,7 +37,7 @@ jobs:
 
       - name: Docker Build
         run: |
-          docker build -t pyxler-api:latest .
+          docker build -t pyxler-api:latest --build-arg GIT_SHA=${{ github.sha }} .
           docker save -o pyxler-api.tar pyxler-api:latest
 
       - name: Docker Upload
@@ -48,19 +48,19 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'ENDSSH'
           docker load -i ~/pyxler-api.tar
-          docker service update --force --detach --env-add "GITHUB_HEADREF=${{ github.head_ref }}" --env-add "GITHUB_SHA=${{ github.sha }}" pyxler_pyxler-api
+          docker service update --force --detach pyxler_pyxler-api
           ENDSSH
 
       # AWS
-      - name: Configure AWS
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+      # - name: Configure AWS
+      #   uses: aws-actions/configure-aws-credentials@v4
+      #   with:
+      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #     aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Compress
-        run: zip -r -q archive.zip ./*.mjs ./*.json ./node_modules
+      # - name: Compress
+      #   run: zip -r -q archive.zip ./*.mjs ./*.json ./node_modules
 
-      - name: Deploy
-        run: aws lambda update-function-code --function-name=function1 --zip-file=fileb://./archive.zip
+      # - name: Deploy
+      #   run: aws lambda update-function-code --function-name=function1 --zip-file=fileb://./archive.zip

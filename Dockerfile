@@ -1,4 +1,6 @@
 FROM node:20
+ARG GIT_SHA
+ENV GIT_SHA=${GIT_SHA}
 RUN mkdir -p /srv
 WORKDIR /srv
 COPY . .
