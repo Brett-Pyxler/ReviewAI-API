@@ -191,6 +191,8 @@ async function adminMemberGet(req, res, next) {
     if (!response) {
       throw new Error("Unknown member.");
     }
+    // populate
+    await response.populate("organizations");
     // response
     res.json({ member: response });
   } catch (err) {
