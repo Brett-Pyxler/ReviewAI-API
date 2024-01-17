@@ -97,14 +97,14 @@ if (process.env.UNIT_TEST) {
         .catch(console.error)
         .then(process.exit);
 
-    // false &&
-    asinTaskGet(
-      {
-        query: { estimateId: "657aec8c4543f72f1100882a" }
-      },
-      _res
-    )
-      .catch(console.error)
-      .then(process.exit);
+    false &&
+      asinTaskGet(
+        {
+          query: { estimateId: "657aec8c4543f72f1100882a" }
+        },
+        _res
+      )
+        .catch(console.error)
+        .then(process.exit);
   });
 }

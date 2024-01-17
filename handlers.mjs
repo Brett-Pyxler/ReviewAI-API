@@ -59,6 +59,7 @@ async function asinTaskPost(req, res, next) {
 }
 
 async function asinTaskGet(req, res, next) {
+  let debug = [];
   try {
     let estimateId = extractPattern(
       objectPatern,
@@ -70,17 +71,23 @@ async function asinTaskGet(req, res, next) {
       req.params?.estimateId
     );
 
+    debug.push(`estimateId: ${estimateId}`);
+
     if (!estimateId) {
       throw new Error("invalid estimateId");
     }
 
     let r = await AsinEstimates.findById({ _id: estimateId });
 
+    debug.push(`complete.timestamp: ${r?.complete?.timestamp}`);
     if (!r?.complete?.timestamp) {
       // estimate is incomplete
 
+      debug.push(`taskId: ${r?.dataforseo?.taskId}`);
+      debug.push(`isComplete: ${r?.dataforseo?.isComplete}`);
       if (!r?.dataforseo?.taskId) {
         // dataforseo task is missing
+        debug.push("!taskId");
         let s = await amazonReviewsTaskCreate(r.asinId, {
           // shallow depth for statistics
           reviewDepth: 10,
@@ -94,7 +101,9 @@ async function asinTaskGet(req, res, next) {
         await r.save();
       } else if (!r?.dataforseo?.isComplete) {
         // dataforseo task is pending
+        debug.push("!isComplete");
         let s = await amazonReviewsTaskRetrieve(r.dataforseo.taskId);
+        debug.push(s);
         r.dataforseo.retrieve.response = s;
         r.dataforseo.retrieve.timestamp = new Date();
         await r.save();
@@ -103,10 +112,12 @@ async function asinTaskGet(req, res, next) {
           {},
           r.dataforseo.retrieve.response.tasks?.[0]?.result?.[0]
         );
+        debug.push(result);
         r.complete.metadata = Object.assign({}, result, {
           items: undefined,
           items_count: undefined
         });
+        debug.push(r.complete.metadata);
         r.complete.timestamp = new Date();
         r.dataforseo.isComplete = !!(
           result?.reviews_count >= 0 &&
@@ -120,10 +131,11 @@ async function asinTaskGet(req, res, next) {
     return res.json({
       estimateId: r._id,
       asinId: r.asinId,
-      complete: r.complete
+      complete: r.complete,
+      debug: debug
     });
   } catch (err) {
-    res.json({ status: 500, message: String(err) });
+    res.json({ status: 500, message: String(err), debug: debug });
   }
 }
 
