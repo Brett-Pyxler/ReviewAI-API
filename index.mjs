@@ -151,6 +151,14 @@ export const handler = async function (event, context) {
   return serverless(server)(event, context);
 };
 
+if (process.env.LISTEN) {
+  dbConnect().then(function () {
+    server.listen(3000, function () {
+      console.log("listen()", this.address());
+    });
+  });
+}
+
 if (process.env.DEV) {
   dbConnect().then(function () {
     server.listen(3000, function () {

@@ -5,7 +5,8 @@
     "test": "mocha",
     "dev": "DEV=true node index.mjs",
     "exec_test": "EXEC_TEST=true node index.mjs",
-    "conn_test": "CONN_TEST=true node index.mjs"
+    "conn_test": "CONN_TEST=true node index.mjs",
+    "listen": "LISTEN=true node index.mjs"
   },
   "devDependencies": {
     "@google/generative-ai": "^0.1.3",

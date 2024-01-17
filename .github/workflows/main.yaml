@@ -14,6 +14,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
+      # Node
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
@@ -28,6 +29,27 @@ jobs:
       - name: Execution Test
         run: npm run exec_test
 
+      # Docker
+      - name: Docker Build
+        run: |
+          docker build -t pyxler-api:latest .
+          docker save -o pyxler-api.tar pyxler-api:latest
+
+      - name: Docker Upload
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          scp pyxler-api.tar ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:~
+
+      - name: Docker Load
+        run: |
+          ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'ENDSSH'
+          docker load -i ~/pyxler-api.tar
+          docker service update --force --detach --env-add "GITHUB_HEADREF=${{ github.head_ref }}" --env-add "GITHUB_SHA=${{ github.sha }}" pyxler_pyxler-api
+          ENDSSH
+
+      # AWS
       - name: Configure AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
