@@ -537,34 +537,16 @@ const AmazonReviewsSchema = new Schema(
         if (this.openai?.latest?.retryCount >= 5) {
           return;
         }
-        if (!this.openai?.latest?.threadId) {
-          console.log("oaiCreateAndRun()");
-          let r = await oaiCreateAndRun(this.rawObject?.review_text, assistantId, {
-            gId: this.gId,
-            asinId: this.asinId
-          });
-          if (r?.threadId) {
-            await AmazonReviews.findByIdAndUpdate(this._id, {
-              $set: {
-                "openai.latest.assistantId": r?.assistantId,
-                "openai.latest.threadId": r?.threadId,
-                "openai.latest.threadObject": r?.threadObject
-              },
-              $push: {
-                "openai.history": r
-              },
-              $addToSet: { requestsPending: r?.threadId }
-            });
-          } else {
-            await AmazonReviews.findByIdAndUpdate(this._id, {
-              $inc: {
-                "openai.latest.retryCount": 1
-              }
-            });
-          }
-          return true;
+        if (!this.rawObject?.review_text) {
+          return;
         }
-        if (!this.openai?.latest?.textContent && this.openai?.latest?.threadId) {
+        if (this.openai?.latest?.threadId && this.openai?.latest?.textContent) {
+          // done
+          await AmazonReviews.findByIdAndUpdate(this._id, {
+            $pull: { requestsPending: this.openai?.latest?.threadId }
+          });
+        } else if (this.openai?.latest?.threadId) {
+          // get
           console.log("oaiThreadRetrieve()");
           let r = await oaiThreadRetrieve(this.openai?.latest?.threadId, 1);
           if (r?.textContent) {
@@ -578,16 +560,35 @@ const AmazonReviewsSchema = new Schema(
                 "openai.threatValue": threatValue,
                 threatValue: threatValue
               },
-              $push: {
-                "openai.history": r
-              },
+              $push: { "openai.history": r },
               $pull: { requestsPending: this.openai?.latest?.threadId }
             });
           } else {
             await AmazonReviews.findByIdAndUpdate(this._id, {
-              $inc: {
-                "openai.latest.retryCount": 1
-              }
+              $inc: { "openai.latest.retryCount": 1 }
+            });
+          }
+          return true;
+        } else {
+          // post
+          console.log("oaiCreateAndRun()");
+          let r = await oaiCreateAndRun(this.rawObject?.review_text, assistantId, {
+            gId: this.gId,
+            asinId: this.asinId
+          });
+          if (r?.threadId) {
+            await AmazonReviews.findByIdAndUpdate(this._id, {
+              $set: {
+                "openai.latest.assistantId": r?.assistantId,
+                "openai.latest.threadId": r?.threadId,
+                "openai.latest.threadObject": r?.threadObject
+              },
+              $push: { "openai.history": r },
+              $addToSet: { requestsPending: r?.threadId }
+            });
+          } else {
+            await AmazonReviews.findByIdAndUpdate(this._id, {
+              $inc: { "openai.latest.retryCount": 1 }
             });
           }
           return true;
