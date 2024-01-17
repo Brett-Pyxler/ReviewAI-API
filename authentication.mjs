@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import { Members } from "./models.mjs";
 
 process.env.JWT_SECRET ??= "secret";
-process.env.SALT_ROUNDS ??= 10;
+// process.env.SALT_ROUNDS ??= 10;
 
 // passwordHash = await bcrypt.hash(password, saltRounds);
 // match = await bcrypt.compare(password, passwordHash);

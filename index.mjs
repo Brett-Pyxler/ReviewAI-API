@@ -4,6 +4,8 @@ dotenv.config();
 
 import mongoose from "mongoose";
 
+import bcrypt from "bcrypt";
+
 import helmet from "helmet";
 
 import serverless from "serverless-http";
@@ -12,7 +14,13 @@ import express from "express";
 
 import cookieParser from "cookie-parser";
 
-import { asinsOverviewLookup, asinsOverviewEnumerate, asinsOverviewGet } from "./handler.organizations.mjs";
+import {
+  asinsOverviewLookup,
+  asinsOverviewEnumerate,
+  asinsOverviewGet,
+  asinsInsightsGet,
+  asinsReviewsEnumerate
+} from "./handler.organizations.mjs";
 
 import { dataforseoAmazonReviewsTaskCallback, dataforseoAmazonReviewsEnsure } from "./dataforseo.mjs";
 
@@ -23,12 +31,14 @@ import {
   adminOrganizationsEnumerate,
   adminMembersEnumerate,
   adminOrganizationAsinsAdd,
-  adminOrganizationMembersAdd
+  adminOrganizationMembersAdd,
+  adminMemberGet,
+  adminMemberChangePassword
 } from "./handler.admin.mjs";
 
 import { authLogin, authLogout, authRetrieve, authRouteDecode, authRouteRequire } from "./authentication.mjs";
 
-import { AmazonAsins, DataforseoAmazonReviews, DataforseoCallbackCaches } from "./models.mjs";
+import { AmazonAsins, DataforseoAmazonReviews, DataforseoCallbackCaches, Members, Organizations } from "./models.mjs";
 
 export const server = express();
 
@@ -57,13 +67,17 @@ server
 
 // Asins
 
-server.get("/api/asins/lookup/:id", authRouteRequire, asinsOverviewLookup);
+server.get("/api/asin/:id/reviews", authRouteRequire, asinsReviewsEnumerate);
+
+server.get("/api/asin/:id", authRouteRequire, asinsOverviewLookup);
 
 server.get("/api/asins/enumerate", authRouteRequire, asinsOverviewEnumerate);
 
 server.get("/api/asins/overview", authRouteRequire, asinsOverviewGet);
 
-// server.get("/api/asins/insight", authRouteRequire, asinsInsightGet);
+server.get("/api/asins/insights", authRouteRequire, asinsInsightsGet);
+
+server.all("/api/dataforseo/callback/data", dataforseoAmazonReviewsTaskCallback);
 
 server.post("/api/admin/search", authRouteRequire, adminSearch);
 
@@ -79,7 +93,9 @@ server.get("/api/admin/organizations/enumerate", authRouteRequire, adminOrganiza
 
 server.get("/api/admin/members/enumerate", authRouteRequire, adminMembersEnumerate);
 
-server.all("/api/dataforseo/callback/data", dataforseoAmazonReviewsTaskCallback);
+server.get("/api/admin/member/:id/", authRouteRequire, adminMemberGet);
+
+server.patch("/api/admin/member/:id/password", authRouteRequire, adminMemberChangePassword);
 
 // OLD:
 
@@ -149,25 +165,22 @@ if (process.env.CONN_TEST) {
     .then(process.exit);
 }
 
-if (process.env.TESTEST) {
+if (process.env.SETUP) {
   dbConnect().then(async function () {
-    // let doc = await DataforseoAmazonReviews.findById("6594d3dd91ba48f97505d34e");
-    let doc = await AmazonAsins.findById("65941bd5b7af2a90f4ffc7d2");
-    // let doc = await DataforseoCallbackCaches.findById("6594fd82d78088ce7e32e592");
-    // let doc = await DataforseoCallbackCaches.findById("6594fd82d78088ce7e32e592");
-    console.log("found", !!doc);
-    console.log(doc);
-    // if (doc?.reviews?.critical == null) {
-    //   let arq = await dataforseoAmazonReviewsEnsure(doc?.asinId, {
-    //     depth: 10,
-    //     filterByStar: "critical"
-    //   });
-    //   console.log("arq", arq);
-    //   if (arq?.result?.complete) {
-    //     await arq.save();
-    //   }
-    // }
-    // if (doc) console.log(await doc.save());
-    // process.exit();
+    let org = await Organizations.create({
+      preferredName: "Setup"
+    });
+    let mem = await Members.create({
+      preferredName: "Setup",
+      organizations: [org._id],
+      administrator: {
+        fullAccess: true
+      },
+      security: {
+        passwordHash: await bcrypt.hash("password", process.env.SALT_ROUNDS ?? 10)
+      }
+    });
+    console.log("Done.");
+    process.exit();
   });
 }

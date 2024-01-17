@@ -1,7 +1,19 @@
 import { isValidObjectId } from "mongoose";
+import bcrypt from "bcrypt";
 import { Organizations, Members, AmazonAsins } from "./models.mjs";
 
 const asinPattern = /^[0-9A-Z]{10}$/;
+
+// async function Stub(req, res, next) {
+//   try {
+//     const var1 = req.query?.var1 ?? req.body?.var1 ?? null;
+//     const var2 = req.params?.var2 || null;
+//     // response
+//     res.json({});
+//   } catch (err) {
+//     res.status(401).json({ message: String(err) });
+//   }
+// }
 
 async function adminSearch(req, res, next) {
   try {
@@ -169,6 +181,43 @@ async function adminOrganizationAsinsAdd(req, res, next) {
   }
 }
 
+async function adminMemberGet(req, res, next) {
+  try {
+    const memberId = req.params?.id || null;
+    if (!req.member?.administrator?.fullAccess) {
+      throw new Error("Permission denied.");
+    }
+    let response = await Members.findById(memberId);
+    if (!response) {
+      throw new Error("Unknown member.");
+    }
+    // response
+    res.json({ member: response });
+  } catch (err) {
+    res.status(401).json({ message: String(err) });
+  }
+}
+
+async function adminMemberChangePassword(req, res, next) {
+  try {
+    const memberId = req.params?.id || null;
+    const pass = req.body?.pass ?? null;
+    if (!req.member?.administrator?.fullAccess) {
+      throw new Error("Permission denied.");
+    }
+    let response = await Members.findById(memberId);
+    if (!response) {
+      throw new Error("Unknown member.");
+    }
+    response.security.passwordHash = await bcrypt.hash(pass, process.env.SALT_ROUNDS ?? 10);
+    await response.save();
+    // response
+    res.json({});
+  } catch (err) {
+    res.status(401).json({ message: String(err) });
+  }
+}
+
 export {
   adminSearch,
   adminCreateOrganization,
@@ -176,5 +225,7 @@ export {
   adminOrganizationsEnumerate,
   adminMembersEnumerate,
   adminOrganizationMembersAdd,
-  adminOrganizationAsinsAdd
+  adminOrganizationAsinsAdd,
+  adminMemberGet,
+  adminMemberChangePassword
 };

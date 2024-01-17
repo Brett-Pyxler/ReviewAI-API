@@ -1,5 +1,5 @@
 import { isValidObjectId } from "mongoose";
-import { AmazonAsins } from "./models.mjs";
+import { AmazonAsins, AmazonReviews } from "./models.mjs";
 
 async function asinsOverviewLookup(req, res, next) {
   try {
@@ -77,4 +77,34 @@ async function asinsOverviewGet(req, res, next) {
   }
 }
 
-export { asinsOverviewLookup, asinsOverviewEnumerate, asinsOverviewGet };
+async function asinsInsightsGet(req, res, next) {
+  try {
+    // populate
+    await req.member.populate("organizations");
+    await req.member.populate("organizations.asins");
+    // summarize
+    let objects = req.member.organizations.reduce((o, c, i) => o.concat(c.asins), []);
+    // response
+    res.json({
+      insights: objects
+    });
+  } catch (err) {
+    res.status(401).json({ message: String(err) });
+  }
+}
+
+async function asinsReviewsEnumerate(req, res, next) {
+  try {
+    const asinId = req.params?.id || null;
+    // aggregate
+    let response = await AmazonReviews.find({
+      asinId
+    });
+    // response
+    res.json({ enumerate: response });
+  } catch (err) {
+    res.status(401).json({ message: String(err) });
+  }
+}
+
+export { asinsOverviewLookup, asinsOverviewEnumerate, asinsOverviewGet, asinsInsightsGet, asinsReviewsEnumerate };
