@@ -39,7 +39,7 @@ server.all("*", async function (req, res, next) {
   res.json(payload);
 });
 
-export const handler = async function () {
+export const handler = async function (event, context) {
   global.mongoose_client = await mongoose.connect(
     process.env.MONGO_CONNECTION,
     {
@@ -47,15 +47,20 @@ export const handler = async function () {
       pass: encodeURIComponent(process.env.MONGO_PASSWORD),
     },
   );
-  return serverless(server);
+  return serverless(server)(event, context);
 };
 
 if (process.env.EXEC_TEST) {
-  process.exit(0);
+  handler()
+    //
+    .then(console.log)
+    .catch(console.error)
+    .then(process.exit);
 }
 
 if (process.env.CONN_TEST) {
   handler()
+    //
     .then(async () => {
       console.log(
         await mongoose.connection.db.admin().command({
