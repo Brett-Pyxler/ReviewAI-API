@@ -1,4 +1,4 @@
-import { AsinEstimates } from "./models.mjs";
+import { AccessLogs, AsinEstimates } from "./models.mjs";
 
 async function amazonReviewsTaskCreate(asinId, options = {}) {
   const authUser = process.env.DATAFORSEO_USER;
