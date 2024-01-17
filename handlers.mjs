@@ -56,7 +56,9 @@ async function AsinTaskGet(req, res, next) {
       req.body?.estimate_id,
       req.body?.estimateId,
       req.query?.estimate_id,
-      req.query?.estimateId
+      req.query?.estimateId,
+      req.params?.estimate_id,
+      req.params?.estimateId
     );
 
     if (!estimateId) {
