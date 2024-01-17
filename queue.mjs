@@ -6,6 +6,7 @@ async function queueTick() {
   console.log("queueTick()");
   if (timerId) timerId = clearInterval(timerId);
   let docs;
+  let docCount = 0;
   try {
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // AmazonAsins
@@ -17,6 +18,7 @@ async function queueTick() {
         { requestsPending: { $exists: true, $ne: [] } }
       ]
     }).limit(5);
+    docCount += docs?.length ?? 0;
     console.log("queueTick.AmazonAsins:", docs?.length ?? 0);
     for await (let doc of docs) {
       console.log("queueTick.AmazonAsins:", String(doc?._id));
@@ -37,6 +39,7 @@ async function queueTick() {
         { requestsPending: { $exists: true, $ne: [] } }
       ]
     }).limit(5);
+    docCount += docs?.length ?? 0;
     console.log("queueTick.AmazonReviews:", docs?.length ?? 0);
     for await (let doc of docs) {
       console.log("queueTick.AmazonReviews:", String(doc?._id));
@@ -54,7 +57,7 @@ async function queueTick() {
       console.log("queueTick.warn: timerId set elsewhere");
       return;
     }
-    let wait = docs?.length ? 5000 : 60000;
+    let wait = docCount ? 5000 : 60000;
     console.log("queueTick.wait", wait);
     timerId = setTimeout(queueTick, wait);
   }
