@@ -105,7 +105,7 @@ async function aiGeminiTest(req, res, next) {
         // ,generationConfig
       });
 
-      result = await chat.sendMessage("How many paws are in my house?");
+      result = await chat.sendMessage(prompt);
       text = result.response.text();
     }
 
