@@ -113,8 +113,9 @@ async function aiGeminiTest(req, res, next) {
     res.json({
       prompt,
       text,
-      result,
-      chat
+      result
+      // note: chat._apiKey is exposed
+      // chat
     });
   } catch (err) {
     res.json({ message: String(err) });
@@ -125,3 +126,38 @@ export {
   //
   aiGeminiTest
 };
+
+/*
+ {"prompt": "How many paws are in my house?",
+  "text": "If you have two dogs in your house, and each dog has four paws, then you have a total of **eight paws** in your house.\n\n```\nNumber of dogs = 2\nNumber of paws per dog = 4\nTotal number of paws = 2 dogs * 4 paws/dog = 8 paws\n```\n\nFun fact: Dogs are often referred to as \"four-legged friends\" because of the four paws that help them walk, run, and play.",
+  "result": {
+    "response": {
+      "candidates": [{
+          "index": 0,
+          "finishReason": "STOP",
+          "content": {"parts": [{
+            "role": "model"
+            "text": "If you have two dogs in your house, and each dog has four paws, then you have a total of **eight paws** in your house.\n\n```\nNumber of dogs = 2\nNumber of paws per dog = 4\nTotal number of paws = 2 dogs * 4 paws/dog = 8 paws\n```\n\nFun fact: Dogs are often referred to as \"four-legged friends\" because of the four paws that help them walk, run, and play."}],
+          },
+          "safetyRatings": [ .. ]}],
+      "promptFeedback": { "safetyRatings": [ .. ] }
+    }
+  },
+  "chat": {
+    "model": "gemini-pro",
+    "params": {
+      "history": [
+        {"role": "user","parts": "Hello, I have 2 dogs in my house."},
+        {"role": "model","parts": "Great to meet you. What would you like to know?"}]},
+    "_history": [
+      {"role": "user","parts": [{
+        "text": "Hello, I have 2 dogs in my house."}]},
+      {"role": "model","parts": [{
+        "text": "Great to meet you. What would you like to know?"}]},
+      {"role": "user","parts": [{
+        "text": "How many paws are in my house?"}]},
+      {"role": "model","parts": [{
+        "text": "If you have two dogs in your house, and each dog has four paws, then you have a total of **eight paws** in your house.\n\n```\nNumber of dogs = 2\nNumber of paws per dog = 4\nTotal number of paws = 2 dogs * 4 paws/dog = 8 paws\n```\n\nFun fact: Dogs are often referred to as \"four-legged friends\" because of the four paws that help them walk, run, and play."}]}
+    ],
+    "_apiKey": ".."}}
+*/
