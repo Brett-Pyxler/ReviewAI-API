@@ -1,6 +1,7 @@
 {
   "scripts": {
     "lint": "prettier -w .",
+    "check": "prettier -c .",
     "test": "TEST=true node index.mjs"
   },
   "devDependencies": {

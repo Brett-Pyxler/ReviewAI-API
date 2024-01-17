@@ -22,8 +22,11 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      #     - name: Build React App
-      #       run: npm run client-build
+      - name: Syntax Test
+        run: npm run check
+
+      - name: Execution Test
+        run: npm run test
 
       - name: Configure AWS
         uses: aws-actions/configure-aws-credentials@v4
