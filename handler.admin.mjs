@@ -1,6 +1,7 @@
 import { isValidObjectId } from "mongoose";
 import bcrypt from "bcrypt";
 import { Organizations, Members, AmazonAsins } from "./models.mjs";
+import { dfsARScrapesEnsure } from "./dataforseo.mjs";
 
 const asinPattern = /^[0-9A-Z]{10}$/;
 
