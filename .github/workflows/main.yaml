@@ -30,6 +30,11 @@ jobs:
         run: npm run exec_test
 
       # Docker
+      - name: SSH Key
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_KEY }}
+
       - name: Docker Build
         run: |
           docker build -t pyxler-api:latest .
@@ -37,9 +42,6 @@ jobs:
 
       - name: Docker Upload
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
           scp -o StrictHostKeyChecking=no pyxler-api.tar ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:~
 
       - name: Docker Load
