@@ -8,6 +8,10 @@ function sortedKV(i) {
 }
 
 async function dataforseoAmazonReviewsEnsure(asinId, options = {}) {
+  // Use an existing request when possible.
+  // Manually retrieve if cache incomplete.
+  // Fallback to create new request.
+
   const authUser = process.env.DATAFORSEO_USER;
   const authPass = process.env.DATAFORSEO_PASS;
   const authToken = Buffer.from(`${authUser}:${authPass}`).toString("base64");
@@ -21,17 +25,40 @@ async function dataforseoAmazonReviewsEnsure(asinId, options = {}) {
   maxAge.setHours(maxAge.getHours() - 48);
 
   // cache
-
   let doc = await DataforseoAmazonReviews.findOne({
     "request.asinId": asinId,
     "request.optionsKey": optionsKey,
     "timestamps.created": { $gt: maxAge }
   });
 
-  if (doc) return doc;
+  if (doc) {
+    try {
+      // incomplete
+      if (doc?.request?.taskId && !doc?.result?.complete) {
+        await DataforseoCallbackCaches.create({
+          timestamp: new Date(),
+          body: await (
+            await fetch(
+              `https://api.dataforseo.com/v3/merchant/amazon/reviews/task_get/advanced/${doc?.request?.taskId}`,
+              {
+                method: "GET",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: authHeader
+                }
+              }
+            )
+          ).json()
+        });
+      }
+    } catch (err) {
+      console.error(err);
+    }
+    // cache
+    return doc;
+  }
 
   // create
-
   const urlObj = new URL(apiUrl);
   urlObj.searchParams.set("postback_data", "advanced");
   urlObj.searchParams.set(

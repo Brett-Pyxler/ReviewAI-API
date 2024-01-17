@@ -14,7 +14,7 @@ import cookieParser from "cookie-parser";
 
 import { asinsOverviewLookup, asinsOverviewEnumerate, asinsOverviewGet } from "./handler.organizations.mjs";
 
-import { dataforseoAmazonReviewsTaskCallback } from "./dataforseo.mjs";
+import { dataforseoAmazonReviewsTaskCallback, dataforseoAmazonReviewsEnsure } from "./dataforseo.mjs";
 
 import {
   adminSearch,
@@ -152,11 +152,22 @@ if (process.env.CONN_TEST) {
 if (process.env.TESTEST) {
   dbConnect().then(async function () {
     // let doc = await DataforseoAmazonReviews.findById("6594d3dd91ba48f97505d34e");
-    // let doc = await AmazonAsins.findById("65941bd5b7af2a90f4ffc7d2");
+    let doc = await AmazonAsins.findById("65941bd5b7af2a90f4ffc7d2");
     // let doc = await DataforseoCallbackCaches.findById("6594fd82d78088ce7e32e592");
-    let doc = await DataforseoCallbackCaches.findById("6594fd82d78088ce7e32e592");
+    // let doc = await DataforseoCallbackCaches.findById("6594fd82d78088ce7e32e592");
     console.log("found", !!doc);
-    if (doc) console.log(await doc.save());
-    process.exit();
+    console.log(doc);
+    // if (doc?.reviews?.critical == null) {
+    //   let arq = await dataforseoAmazonReviewsEnsure(doc?.asinId, {
+    //     depth: 10,
+    //     filterByStar: "critical"
+    //   });
+    //   console.log("arq", arq);
+    //   if (arq?.result?.complete) {
+    //     await arq.save();
+    //   }
+    // }
+    // if (doc) console.log(await doc.save());
+    // process.exit();
   });
 }

@@ -209,22 +209,20 @@ const AmazonAsinsSchema = new Schema({
 
 AmazonAsinsSchema.pre("save", async function (next) {
   const doc = this;
-  // critical
-  if (doc?.reviews?.critical == null) {
-    try {
-      await dataforseoAmazonReviewsEnsure(doc?.asinId, {
-        depth: 10,
-        filterByStar: "critical"
-      });
-    } catch (err) {
-      console.error(err);
-    }
-  }
   // timestamps
   if (doc.isModified()) {
     doc.timestamps.lastUpdate = new Date();
   }
   next();
+});
+
+AmazonAsinsSchema.post("init", async function (doc) {
+  if (doc?.reviews?.critical == null) {
+    await dataforseoAmazonReviewsEnsure(doc?.asinId, {
+      depth: 10,
+      filterByStar: "critical"
+    });
+  }
 });
 
 const AmazonAsins = model(cAmazonAsins, AmazonAsinsSchema);
@@ -350,43 +348,37 @@ const extractReviewId = (i) => /\/([A-Z0-9]{10,})/.exec(i)?.[1];
 
 DataforseoAmazonReviewsSchema.pre("save", async function (next) {
   const doc = this;
-  if (doc?.result?.complete) {
+  if (doc.isModified() && doc?.result?.complete) {
     // AmazonAsins
     const asinId = doc?.result?.response?.asin;
-    const asin = await AmazonAsins.findOne({ asinId });
-    if (asin) {
-      // title
-      if (doc?.result?.title) {
-        asin.title ??= doc?.result?.title;
-        console.log("Updating title:", String(asin.title));
-        await asin.save();
-      }
-      // critical
-      if (doc?.result?.reviews_count >= 0 && doc?.options?.filterByStar == "critical") {
-        asin.reviews.critical ??= doc?.result?.reviews_count;
-        console.log("Updating critical:", asin.reviews.critical);
-        await asin.save();
-      }
-      // AmazonReviews
-      if (Array.isArray(doc?.result?.response?.items)) {
-        for await (let item of doc.result.response.items) {
-          let gId = extractReviewId(item?.url);
-          let review = await AmazonReviews.findOne({ asinId, gId });
-          // todo: update with newer information?
-          if (!review) {
-            try {
-              review = await AmazonReviews.create({
-                asinId,
-                gId,
-                rawObject: review,
-                timestamps: {
-                  firstSeen: new Date()
-                },
-                asin: asin?._id
-              });
-            } catch (err) {
-              console.error(err);
-            }
+    if (doc?.result?.response?.title) {
+      await AmazonAsins.updateOne({ asinId }, { $set: { title: doc?.result?.response?.title } });
+    }
+    if (doc?.result?.response?.image?.image_url) {
+      await AmazonAsins.updateOne({ asinId }, { $set: { imageUrl: doc?.result?.response?.image?.image_url } });
+    }
+    if (doc?.result?.response?.reviews_count >= 0 && doc?.request?.options?.filterByStar == "critical") {
+      await AmazonAsins.updateOne({ asinId }, { $set: { "reviews.critical": doc?.result?.response?.reviews_count } });
+    }
+    // AmazonReviews
+    if (Array.isArray(doc?.result?.response?.items)) {
+      for await (let item of doc.result.response.items) {
+        let gId = extractReviewId(item?.url);
+        let review = await AmazonReviews.findOne({ asinId, gId });
+        // todo: update with newer information?
+        if (!review) {
+          try {
+            review = await AmazonReviews.create({
+              asinId,
+              gId,
+              rawObject: review,
+              timestamps: {
+                firstSeen: new Date()
+              },
+              asin: asin?._id
+            });
+          } catch (err) {
+            console.error(err);
           }
         }
       }
@@ -442,116 +434,118 @@ const DataforseoCallbackCaches = model(cDataforseoCallbackCaches, DataforseoCall
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // AsinEstimates
 
-const AsinEstimatesSchema = new Schema({
-  asinId: {
-    type: String,
-    index: {
-      unique: false
-    }
-  },
-  create: {
-    timestamp: { type: Date, default: null },
-    request: {
-      ip: { type: String },
-      query: { type: Object },
-      body: { type: Object },
-      headers: { type: Object },
-      cookies: { type: Object }
-    }
-  },
-  complete: {
-    isComplete: { type: Boolean, default: false },
-    metadata: { type: Object, default: null },
-    timestamp: { type: Date, default: null }
-  },
-  dataforseo: {
-    isComplete: { type: Boolean, default: false },
-    taskId: { type: String },
-    create: {
-      // request: { type: Object, default: null },
-      response: { type: Object, default: null },
-      timestamp: { type: Date, default: null },
-      timespan: { type: Number, default: null }
-    },
-    retrieve: {
-      // request: { type: Object, default: null },
-      response: { type: Object, default: null },
-      timestamp: { type: Date, default: null },
-      timespan: { type: Number, default: null }
-    },
-    callback: {
-      // request: { type: Object, default: null },
-      response: { type: Object, default: null },
-      timestamp: { type: Date, default: null }
-      // timespan: { type: Number, default: null }
-    }
-  },
-  alerts: {
-    isComplete: { type: Boolean, default: false },
-    phone: { type: String }
-  }
-});
+// const AsinEstimatesSchema = new Schema({
+//   asinId: {
+//     type: String,
+//     index: {
+//       unique: false
+//     }
+//   },
+//   create: {
+//     timestamp: { type: Date, default: null },
+//     request: {
+//       ip: { type: String },
+//       query: { type: Object },
+//       body: { type: Object },
+//       headers: { type: Object },
+//       cookies: { type: Object }
+//     }
+//   },
+//   complete: {
+//     isComplete: { type: Boolean, default: false },
+//     metadata: { type: Object, default: null },
+//     timestamp: { type: Date, default: null }
+//   },
+//   dataforseo: {
+//     isComplete: { type: Boolean, default: false },
+//     taskId: { type: String },
+//     create: {
+//       // request: { type: Object, default: null },
+//       response: { type: Object, default: null },
+//       timestamp: { type: Date, default: null },
+//       timespan: { type: Number, default: null }
+//     },
+//     retrieve: {
+//       // request: { type: Object, default: null },
+//       response: { type: Object, default: null },
+//       timestamp: { type: Date, default: null },
+//       timespan: { type: Number, default: null }
+//     },
+//     callback: {
+//       // request: { type: Object, default: null },
+//       response: { type: Object, default: null },
+//       timestamp: { type: Date, default: null }
+//       // timespan: { type: Number, default: null }
+//     }
+//   },
+//   alerts: {
+//     isComplete: { type: Boolean, default: false },
+//     phone: { type: String }
+//   }
+// });
 
-AsinEstimatesSchema.index(
-  {
-    //
-    asinId: 1,
-    "complete.isComplete": 1,
-    "complete.timestamp": -1
-  },
-  {
-    //
-    unique: false
-  }
-);
+// AsinEstimatesSchema.index(
+//   {
+//     //
+//     asinId: 1,
+//     "complete.isComplete": 1,
+//     "complete.timestamp": -1
+//   },
+//   {
+//     //
+//     unique: false
+//   }
+// );
 
-AsinEstimatesSchema.index(
-  {
-    //
-    asinId: 1,
-    "complete.isComplete": 1,
-    "complete.timestamp": -1,
-    "dataforseo.create.response.tasks.data.filter_by_star": 1
-  },
-  {
-    //
-    unique: false
-  }
-);
+// AsinEstimatesSchema.index(
+//   {
+//     //
+//     asinId: 1,
+//     "complete.isComplete": 1,
+//     "complete.timestamp": -1,
+//     "dataforseo.create.response.tasks.data.filter_by_star": 1
+//   },
+//   {
+//     //
+//     unique: false
+//   }
+// );
 
-AsinEstimatesSchema.pre("save", async function (next) {
-  const doc = this;
-  // process responses
-  if (doc.isModified("dataforseo.retrieve.response dataforseo.callback.response")) {
-    let result = {};
-    // callback response?
-    if (!result?.asin) {
-      result = Object.assign({}, doc?.dataforseo?.callback?.response?.tasks?.[0]?.result?.[0]);
-    }
-    // retrieve respose?
-    if (!result?.asin) {
-      result = Object.assign({}, doc?.dataforseo?.retrieve?.response?.tasks?.[0]?.result?.[0]);
-    }
-    // prune reviews from metadata
-    doc.complete.metadata = Object.assign({}, result, {
-      items: undefined,
-      items_count: undefined
-    });
-    // determine completion
-    let isComplete = !!(result?.asin && result?.reviews_count >= 0 && result?.image?.image_url);
-    doc.dataforseo.isComplete = isComplete;
-    doc.complete.isComplete = isComplete;
-    doc.complete.timestamp = new Date();
-  }
-  // process alerts
-  if (!doc.alerts.isComplete && doc.complete.isComplete && doc.alerts.phone) {
-    // TODO: send twilio alert to ${doc.alerts.phone}
-    // doc.alerts.isComplete = true;
-  }
-  next();
-});
+// AsinEstimatesSchema.pre("save", async function (next) {
+//   const doc = this;
+//   // process responses
+//   if (doc.isModified("dataforseo.retrieve.response dataforseo.callback.response")) {
+//     let result = {};
+//     // callback response?
+//     if (!result?.asin) {
+//       result = Object.assign({}, doc?.dataforseo?.callback?.response?.tasks?.[0]?.result?.[0]);
+//     }
+//     // retrieve respose?
+//     if (!result?.asin) {
+//       result = Object.assign({}, doc?.dataforseo?.retrieve?.response?.tasks?.[0]?.result?.[0]);
+//     }
+//     // prune reviews from metadata
+//     doc.complete.metadata = Object.assign({}, result, {
+//       items: undefined,
+//       items_count: undefined
+//     });
+//     // determine completion
+//     let isComplete = !!(result?.asin && result?.reviews_count >= 0 && result?.image?.image_url);
+//     doc.dataforseo.isComplete = isComplete;
+//     doc.complete.isComplete = isComplete;
+//     doc.complete.timestamp = new Date();
+//   }
+//   // process alerts
+//   if (!doc.alerts.isComplete && doc.complete.isComplete && doc.alerts.phone) {
+//     // TODO: send twilio alert to ${doc.alerts.phone}
+//     // doc.alerts.isComplete = true;
+//   }
+//   next();
+// });
 
-const AsinEstimates = model(cAsinEstimates, AsinEstimatesSchema);
+// const AsinEstimates = model(cAsinEstimates, AsinEstimatesSchema);
+
+const AsinEstimates = null;
 
 export {
   Members,
