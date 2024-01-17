@@ -39,6 +39,11 @@ import {
   authTokenDecode
 } from "./authentication.mjs";
 
+import {
+  //
+  aiGeminiTest
+} from "./googlegemini.mjs";
+
 const server = express();
 
 server.enable("trust proxy");
@@ -101,6 +106,12 @@ server.get(
 //   authRouteDecode,
 //   authRetrieve
 // );
+
+server.all(
+  //
+  "/api/ai/gemini/test",
+  aiGeminiTest
+);
 
 server.all(
   //

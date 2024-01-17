@@ -35,6 +35,35 @@ const AccessLogs = model("access_logs", AccessLogSchema);
 //   MessagesSchema
 // );
 
+// const MembersSchema = new Schema({
+//   preferredName: { type: String },
+// });
+
+// const Members = model(
+//   "members",
+//   MembersSchema
+// );
+
+// const OrgMemLinkSchema = new Schema({
+//   role: { type: String, enum: ["normal"], default: "normal" },
+//   memberId: { type: Schema.Types.ObjectId, ref: 'organizations' }
+// });
+
+// const OrganizationsSchema = new Schema({
+//   preferredName: { type: String },
+//   members: [OrgMemLinkSchema],
+// });
+
+// const Organizations = model(
+//   "organizations",
+//   OrganizationsSchema
+// );
+
+// await Organizations.
+//   findOne({ title: 'RawChemistry' }).
+//   populate('members').
+//   exec();
+
 const DataforseoCallbackCachesSchema = new Schema({
   ip: { type: String },
   headers: { type: Object },
