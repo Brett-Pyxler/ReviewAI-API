@@ -14,6 +14,16 @@ import express from "express";
 
 import cookieParser from "cookie-parser";
 
+import { authLogin, authLogout, authRetrieve, authRouteDecode, authRouteRequire } from "./authentication.mjs";
+
+import { Members, Organizations, AmazonAsins, AmazonReviews, DataforseoCallbackCaches } from "./models.mjs";
+
+import { oaiCreateAndRun, oaiThreadRetrieve } from "./openai.mjs";
+
+import { dfsARScrapeCallback } from "./dataforseo.mjs";
+
+import { queueBegin } from "./queue.mjs";
+
 import {
   asinsOverviewLookup,
   asinsOverviewEnumerate,
@@ -21,10 +31,9 @@ import {
   asinsInsightsGet,
   asinsReviewsEnumerate,
   asinsReviewsPaginate,
-  apiSearch
+  apiSearch,
+  apiVersion
 } from "./handler.portal.mjs";
-
-import { dfsARScrapeCallback } from "./dataforseo.mjs";
 
 import {
   adminSearch,
@@ -38,12 +47,6 @@ import {
   adminMemberGet,
   adminAmazonAsinGet
 } from "./handler.admin.mjs";
-
-import { authLogin, authLogout, authRetrieve, authRouteDecode, authRouteRequire } from "./authentication.mjs";
-
-import { Members, Organizations, AmazonAsins, AmazonReviews } from "./models.mjs";
-
-import { oaiCreateAndRun, oaiThreadRetrieve } from "./openai.mjs";
 
 export const server = express();
 
@@ -77,6 +80,8 @@ server.all("/api/dataforseo/callback/data", dfsARScrapeCallback);
 // Generic
 
 server.post("/api/search", authRouteRequire, apiSearch);
+
+server.all("/api/version", authRouteRequire, apiVersion);
 
 // Organizations
 
@@ -154,6 +159,7 @@ export const handler = async function (event, context) {
 if (process.env.LISTEN) {
   dbConnect().then(function () {
     server.listen(3000, function () {
+      queueBegin();
       console.log("listen()", this.address());
     });
   });
@@ -162,6 +168,7 @@ if (process.env.LISTEN) {
 if (process.env.DEV) {
   dbConnect().then(function () {
     server.listen(3000, function () {
+      queueBegin();
       console.log("listen()", this.address());
     });
   });
@@ -214,49 +221,23 @@ if (process.env.SETUP) {
   });
 }
 
-if (process.env.REVALIDATE) {
+if (process.env.WORD_TEST) {
   dbConnect().then(async function () {
-    // console.log("querying..");
-    // const docs = await DataforseoARScrapes.find().sort({ timestamp: 1 });
-    // for await (let doc of docs) {
-    //   doc.populateReviews();
-    // }
-    // const docs = await AmazonAsins.find().sort({ timestamp: 1 });
-    // for await (let doc of docs) {
-    //   console.log(">>> doc", doc?._id);
-    //   await doc.populateFields();
-    //   // await doc.syncReviews(null);
-    // }
-    // console.log("done.");
-    // process.exit();
-  });
-}
-
-if (process.env.OPENAI_TEST) {
-  dbConnect().then(async function () {
-    let docs = await AmazonReviews.find({
-      "rawObject.review_text": { $exists: true }
-    });
-    console.log("length:", docs?.length);
-    let count = 0;
+    let words = {};
+    let docs = await AmazonReviews.find({});
     for await (let doc of docs) {
-      console.log(">>>", String(doc?._id), doc?.gId);
-
-      if (await doc.openaiCheck()) {
-        count++;
-        console.log({ count });
+      for (let word of doc?.rawObject?.review_text
+        .split(/\b/g)
+        .map((x) => x.toLowerCase())
+        .filter((x) => /[a-z]/.test(x))
+        .filter((x) => x.length > 1)) {
+        words[word] ??= 0;
+        words[word] += 1;
       }
-
-      // doc.openai.threatValue = /^true/i.test(doc.openai.latest.textContent) ? 0.0 : 1.0;
-      // doc.threatValue = doc.openai.threatValue /* this.google.threatValue */;
-      // await doc.save();
-
-      // if (count >= 30) {
-      //   console.log("break.");
-      //   break;
-      // }
     }
-    console.log("done.");
+    for (let word of Object.keys(words)) {
+      console.log(words[word], ":", JSON.stringify(word));
+    }
     process.exit();
   });
 }

@@ -1,7 +1,7 @@
 import { isValidObjectId } from "mongoose";
 import bcrypt from "bcrypt";
 import { Organizations, Members, AmazonAsins } from "./models.mjs";
-import { dfsARScrapesEnsure } from "./dataforseo.mjs";
+// import { dfsARScrapesEnsure } from "./dataforseo.mjs";
 
 const asinPattern = /^[0-9A-Z]{10}$/;
 
@@ -179,10 +179,10 @@ async function adminOrganizationAsinsAdd(req, res, next) {
     // await dfsARScrapesEnsure(asinId, {
     //   reviewDepth: 100
     // });
-    await dfsARScrapesEnsure(asinId, {
-      reviewDepth: 10,
-      filterByStar: "critical"
-    });
+    // await dfsARScrapesEnsure(asinId, {
+    //   reviewDepth: 10,
+    //   filterByStar: "critical"
+    // });
     // response
     res.json({});
   } catch (err) {
