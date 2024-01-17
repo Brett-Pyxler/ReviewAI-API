@@ -5,8 +5,8 @@ import {
 
 import {
   //
-  dataforseoAmazonReviewsTaskCreate,
-  dataforseoAmazonReviewsTaskRetrieve
+  dfsARScrapeCreate,
+  dfsARScrapeRetrieve
 } from "./dataforseo.mjs";
 
 const asinPattern = /^[0-9A-Z]{10}$/;
@@ -94,7 +94,7 @@ async function asinEstimateTaskGet(req, res, next) {
       } else if (!doc?.dataforseo?.taskId) {
         // dataforseo task is missing
         let ts = Date.now();
-        let s = await dataforseoAmazonReviewsTaskCreate(doc.asinId, {
+        let s = await dfsARScrapeCreate(doc.asinId, {
           // shallow depth for statistics
           reviewDepth: 10,
           // enable callback with estimateId
@@ -112,7 +112,7 @@ async function asinEstimateTaskGet(req, res, next) {
       } else if (!doc?.dataforseo?.isComplete) {
         // dataforseo task is pending
         let ts = Date.now();
-        let s = await dataforseoAmazonReviewsTaskRetrieve(doc.dataforseo.taskId);
+        let s = await dfsARScrapeRetrieve(doc.dataforseo.taskId);
         let te = Date.now();
         doc.dataforseo.retrieve.response = s;
         doc.dataforseo.retrieve.timestamp = new Date();

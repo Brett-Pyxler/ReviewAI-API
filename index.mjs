@@ -22,7 +22,7 @@ import {
   asinsReviewsEnumerate
 } from "./handler.organizations.mjs";
 
-import { dataforseoAmazonReviewsTaskCallback } from "./dataforseo.mjs";
+import { dfsARScrapeCallback } from "./dataforseo.mjs";
 
 import {
   adminSearch,
@@ -77,7 +77,7 @@ server.get("/api/asins/overview", authRouteRequire, asinsOverviewGet);
 
 server.get("/api/asins/insights", authRouteRequire, asinsInsightsGet);
 
-server.all("/api/dataforseo/callback/data", dataforseoAmazonReviewsTaskCallback);
+server.all("/api/dataforseo/callback/data", dfsARScrapeCallback);
 
 server.post("/api/admin/search", authRouteRequire, adminSearch);
 
@@ -188,7 +188,7 @@ if (process.env.SETUP) {
 if (process.env.REVALIDATE) {
   dbConnect().then(async function () {
     // console.log("querying..");
-    // const docs = await DataforseoAmazonReviews.find().sort({ timestamp: 1 });
+    // const docs = await DataforseoARScrapes.find().sort({ timestamp: 1 });
     // for await (let doc of docs) {
     //   doc.populateReviews();
     // }

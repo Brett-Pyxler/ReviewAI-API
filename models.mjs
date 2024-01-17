@@ -1,5 +1,5 @@
 import { model, Schema } from "mongoose";
-import { dataforseoAmazonReviewsEnsure } from "./dataforseo.mjs";
+import { dfsARScrapesEnsure } from "./dataforseo.mjs";
 
 const cMembers = "members";
 const cOrganizations = "organizations";
@@ -8,14 +8,14 @@ const cMessages = "messages";
 const cNotifications = "notifications";
 const cAmazonAsins = "amazon_asins";
 const cAmazonReviews = "amazon_reviews";
-const cDataforseoAmazonReviews = "dataforseo_amazon_reviews";
+const cDataforseoARScrapes = "dataforseo_amazon_reviews";
 const cDataforseoCallbackCaches = "dataforseo_callback_cache";
 const cAsinEstimates = "amazon_asin_estimates";
 
 // Amazon Asin Design
 //
 // AmazonAsins are created through the frontpage estimate, admin add, and portal add methods.
-// New entries invoke the dataforseoAmazonReviewsEnsure() function to scrape critical metadata.
+// New entries invoke the dfsARScrapesEnsure() function to scrape critical metadata.
 //
 // Dataforseo's callback updates the AmazonAsin, and creates AmazonReviews. Intensive {depth,sort}
 // scans can be invoked at any time.
@@ -73,7 +73,7 @@ MembersSchema.pre("save", async function (next) {
   const doc = this;
   // email addresses
   if (doc.isModified("emailAddresses emailAddressesLc")) {
-    doc.emailAddresses = doc.emailAddresses.filter((x) => !!x?.toLowerCase);
+    doc.emailAddresses = doc.emailAddresses.filter((x) => !!x?.trim).map((x) => x.trim());
     doc.emailAddressesLc = doc.emailAddresses.map((x) => x.toLowerCase());
   }
   // duplicates
@@ -230,14 +230,14 @@ const AmazonAsinsSchema = new Schema(
   },
   {
     methods: {
-      async notifyDataforseoAmazonReviews(reviewRequest) {
+      async notifyDataforseoARScrapes(reviewRequest) {
         await this.populateFields();
       },
       async populateFields() {
         let needSaved = false;
 
         // basic
-        const _basic = await DataforseoAmazonReviews.findOne({
+        const _basic = await DataforseoARScrapes.findOne({
           "request.asinId": this.asinId,
           "result.complete": true,
           "result.task.data.filter_by_star": { $ne: "critical" }
@@ -247,7 +247,7 @@ const AmazonAsinsSchema = new Schema(
         const basic = _basic?.result?.response;
 
         // critical
-        const _critical = await DataforseoAmazonReviews.findOne({
+        const _critical = await DataforseoARScrapes.findOne({
           "request.asinId": this.asinId,
           "result.complete": true,
           "result.task.data.filter_by_star": "critical"
@@ -335,24 +335,24 @@ const AmazonAsinsSchema = new Schema(
         let r;
         // find normally visible reviews
         // i.e., what visitors would see
-        await dataforseoAmazonReviewsEnsure(this.asinId, {
+        await dfsARScrapesEnsure(this.asinId, {
           reviewDepth: 100
         });
         // find recent reviews
         // i.e., progressive updates
-        await dataforseoAmazonReviewsEnsure(this.asinId, {
+        await dfsARScrapesEnsure(this.asinId, {
           reviewDepth: 100,
           sortBy: "recent"
         });
         // find critical reviews
         // i.e., unfavorable reviews
-        await dataforseoAmazonReviewsEnsure(this.asinId, {
+        await dfsARScrapesEnsure(this.asinId, {
           reviewDepth: 100,
           filterByStar: "critical"
         });
       },
       async recoverAmazonReviews() {
-        let docs = await DataforseoAmazonReviews.find({
+        let docs = await DataforseoARScrapes.find({
           "request.asinId": this?.asinId,
           "reviews.populated": { $ne: true }
         });
@@ -376,13 +376,13 @@ AmazonAsinsSchema.pre("save", async function (next) {
 AmazonAsinsSchema.post("init", async function (doc) {
   if (doc?.rating?.value == null) {
     // basic
-    await dataforseoAmazonReviewsEnsure(doc?.asinId, {
+    await dfsARScrapesEnsure(doc?.asinId, {
       reviewDepth: 10
     });
   }
   if (doc?.reviews?.critical == null) {
     // critical
-    await dataforseoAmazonReviewsEnsure(doc?.asinId, {
+    await dfsARScrapesEnsure(doc?.asinId, {
       reviewDepth: 10,
       filterByStar: "critical"
     });
@@ -453,11 +453,11 @@ AmazonReviewsSchema.post("save", async function (doc) {
 const AmazonReviews = model(cAmazonReviews, AmazonReviewsSchema);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// DataforseoAmazonReviews
+// DataforseoARScrapes
 
 const extractReviewId = (i) => /\/([A-Z0-9]{10,})/.exec(i)?.[1];
 
-const DataforseoAmazonReviewsSchema = new Schema(
+const DataforseoARScrapesSchema = new Schema(
   {
     request: {
       // http
@@ -541,15 +541,15 @@ const DataforseoAmazonReviewsSchema = new Schema(
   }
 );
 
-DataforseoAmazonReviewsSchema.post("save", async function (doc) {
+DataforseoARScrapesSchema.post("save", async function (doc) {
   // AmazonAsins
   if (this.isModified()) {
     const asin = await AmazonAsins.findOne({ asinId: doc.request.asinId });
-    await asin?.notifyDataforseoAmazonReviews?.(doc);
+    await asin?.notifyDataforseoARScrapes?.(doc);
   }
 });
 
-const DataforseoAmazonReviews = model(cDataforseoAmazonReviews, DataforseoAmazonReviewsSchema);
+const DataforseoARScrapes = model(cDataforseoARScrapes, DataforseoARScrapesSchema);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // DataforseoCallbackCaches
@@ -567,9 +567,9 @@ DataforseoCallbackCachesSchema.post("save", async function (doc) {
     for await (let task of doc.body.tasks) {
       if (Array.isArray(task?.result)) {
         for await (let result of task.result) {
-          // DataforseoAmazonReviews
+          // DataforseoARScrapes
           if (result?.asin && task?.id) {
-            const review = await DataforseoAmazonReviews.findOne({
+            const review = await DataforseoARScrapes.findOne({
               "request.asinId": result?.asin,
               "request.taskId": task?.id
             });
@@ -707,7 +707,7 @@ export {
   Notifications,
   AmazonAsins,
   AmazonReviews,
-  DataforseoAmazonReviews,
+  DataforseoARScrapes,
   DataforseoCallbackCaches,
   AsinEstimates
 };

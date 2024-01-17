@@ -1,4 +1,4 @@
-import { DataforseoAmazonReviews, DataforseoCallbackCaches, AsinEstimates } from "./models.mjs";
+import { DataforseoARScrapes, DataforseoCallbackCaches, AsinEstimates } from "./models.mjs";
 
 let authHeader = null;
 
@@ -16,15 +16,15 @@ function sortedKV(i) {
     .join(",");
 }
 
-async function dataforseoAmazonReviewsCache(asinId, optionsKey, maxAge) {
-  return await DataforseoAmazonReviews.findOne({
+async function dfsARScrapesCache(asinId, optionsKey, maxAge) {
+  return await DataforseoARScrapes.findOne({
     "request.asinId": asinId,
     "request.optionsKey": optionsKey,
     "timestamps.created": { $gt: maxAge }
   });
 }
 
-async function dataforseoAmazonReviewsCheck(taskId) {
+async function dfsARScrapesCheck(taskId) {
   try {
     authHeader ??= mkAuthHeader();
     await DataforseoCallbackCaches.create({
@@ -45,7 +45,7 @@ async function dataforseoAmazonReviewsCheck(taskId) {
   return null;
 }
 
-async function dataforseoAmazonReviewsEnsure(asinId, options = {}) {
+async function dfsARScrapesEnsure(asinId, options = {}) {
   const callbackHost = process.env.DATAFORSEO_CBHN;
   const optionsKey = sortedKV(options);
 
@@ -55,11 +55,11 @@ async function dataforseoAmazonReviewsEnsure(asinId, options = {}) {
   let reviewRequest;
 
   // cache
-  reviewRequest = await dataforseoAmazonReviewsCache(asinId, optionsKey, maxAge);
+  reviewRequest = await dfsARScrapesCache(asinId, optionsKey, maxAge);
 
   // check
   if (reviewRequest?.request?.taskId && !reviewRequest?.result?.complete) {
-    await dataforseoAmazonReviewsCheck(reviewRequest?.request?.taskId);
+    await dfsARScrapesCheck(reviewRequest?.request?.taskId);
   }
 
   if (reviewRequest) return reviewRequest;
@@ -108,7 +108,7 @@ async function dataforseoAmazonReviewsEnsure(asinId, options = {}) {
     throw new Error("Invalid response");
   }
 
-  reviewRequest = await DataforseoAmazonReviews.create({
+  reviewRequest = await DataforseoARScrapes.create({
     request: {
       params: Object.fromEntries(urlObj.searchParams.entries()),
       response,
@@ -125,7 +125,7 @@ async function dataforseoAmazonReviewsEnsure(asinId, options = {}) {
   return reviewRequest;
 }
 
-// async function dataforseoAmazonReviewsTaskCreate(asinId, options = {}) {
+// async function dfsARScrapeCreate(asinId, options = {}) {
 //   const authUser = process.env.DATAFORSEO_USER;
 //   const authPass = process.env.DATAFORSEO_PASS;
 //   const authToken = Buffer.from(`${authUser}:${authPass}`).toString("base64");
@@ -162,7 +162,7 @@ async function dataforseoAmazonReviewsEnsure(asinId, options = {}) {
 //   }).then((res) => res.json());
 // }
 
-// async function dataforseoAmazonReviewsTaskRetrieve(taskId) {
+// async function dfsARScrapeRetrieve(taskId) {
 //   const authUser = process.env.DATAFORSEO_USER;
 //   const authPass = process.env.DATAFORSEO_PASS;
 //   const authToken = Buffer.from(`${authUser}:${authPass}`).toString("base64");
@@ -177,7 +177,7 @@ async function dataforseoAmazonReviewsEnsure(asinId, options = {}) {
 //   }).then((res) => res.json());
 // }
 
-async function dataforseoAmazonReviewsTaskCallback(req, res, next) {
+async function dfsARScrapeCallback(req, res, next) {
   try {
     // process asin estimates
     // if (req.query?.estimateId) {
@@ -205,10 +205,10 @@ async function dataforseoAmazonReviewsTaskCallback(req, res, next) {
 
 export {
   //
-  dataforseoAmazonReviewsCache,
-  dataforseoAmazonReviewsCheck,
-  dataforseoAmazonReviewsEnsure,
-  // dataforseoAmazonReviewsTaskCreate,
-  // dataforseoAmazonReviewsTaskRetrieve,
-  dataforseoAmazonReviewsTaskCallback
+  dfsARScrapesCache,
+  dfsARScrapesCheck,
+  dfsARScrapesEnsure,
+  // dfsARScrapeCreate,
+  // dfsARScrapeRetrieve,
+  dfsARScrapeCallback
 };
