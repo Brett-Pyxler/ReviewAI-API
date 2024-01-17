@@ -85,12 +85,10 @@ async function asinTaskGet(req, res, next) {
       // estimate is incomplete
       let cache = await asinTaskCache(doc.asinId);
       if (cache) {
-        console.debug("cache available");
         // metadata cache is available
         doc.complete = Object.assign({}, cache.complete);
         doc.dataforseo = Object.assign({}, cache.dataforseo);
         doc.set("dataforseo.retrieve.response", "changed");
-        console.debug("set");
         await doc.save();
       } else if (!doc?.dataforseo?.taskId) {
         // dataforseo task is missing
