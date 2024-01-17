@@ -19,8 +19,9 @@ import {
   asinsOverviewEnumerate,
   asinsOverviewGet,
   asinsInsightsGet,
-  asinsReviewsEnumerate
-} from "./handler.organizations.mjs";
+  asinsReviewsEnumerate,
+  apiSearch
+} from "./handler.portal.mjs";
 
 import { dfsARScrapeCallback } from "./dataforseo.mjs";
 
@@ -68,6 +69,18 @@ server
   .get("/api/auth", authRouteRequire, authRetrieve)
   .delete("/api/auth", authRouteRequire, authLogout);
 
+// Public
+
+server.all("/api/dataforseo/callback/data", dfsARScrapeCallback);
+
+// Generic
+
+server.post("/api/search", authRouteRequire, apiSearch);
+
+// Organizations
+
+// Members
+
 // Asins
 
 server.get("/api/asin/:id/reviews", authRouteRequire, asinsReviewsEnumerate);
@@ -80,7 +93,7 @@ server.get("/api/asins/overview", authRouteRequire, asinsOverviewGet);
 
 server.get("/api/asins/insights", authRouteRequire, asinsInsightsGet);
 
-server.all("/api/dataforseo/callback/data", dfsARScrapeCallback);
+// Admin
 
 server.post("/api/admin/search", authRouteRequire, adminSearch);
 
@@ -94,13 +107,13 @@ server.post("/api/admin/organization", authRouteRequire, adminOrganizationCreate
 
 server.get("/api/admin/organizations/enumerate", authRouteRequire, adminOrganizationsEnumerate);
 
+server.patch("/api/admin/member/:id/password", authRouteRequire, adminMemberChangePassword);
+
 server.get("/api/admin/members/enumerate", authRouteRequire, adminMembersEnumerate);
 
 server.get("/api/admin/member/:id/", authRouteRequire, adminMemberGet);
 
 server.get("/api/admin/asin/:id/", authRouteRequire, adminAmazonAsinGet);
-
-server.patch("/api/admin/member/:id/password", authRouteRequire, adminMemberChangePassword);
 
 // OLD:
 
