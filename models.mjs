@@ -348,6 +348,8 @@ const extractReviewId = (i) => /\/([A-Z0-9]{10,})/.exec(i)?.[1];
 
 DataforseoAmazonReviewsSchema.pre("save", async function (next) {
   const doc = this;
+  console.log("DataforseoAmazonReviewsSchema.preSave", doc?._id);
+  console.log("checking..", doc.isModified(), doc?.result?.complete);
   if (doc.isModified() && doc?.result?.complete) {
     // AmazonAsins
     const asinId = doc?.result?.response?.asin;
@@ -365,18 +367,17 @@ DataforseoAmazonReviewsSchema.pre("save", async function (next) {
       for await (let item of doc.result.response.items) {
         let gId = extractReviewId(item?.url);
         let review = await AmazonReviews.findOne({ asinId, gId });
-        // todo: update with newer information?
         if (!review) {
           try {
             review = await AmazonReviews.create({
               asinId,
               gId,
-              rawObject: review,
+              rawObject: item,
               timestamps: {
                 firstSeen: new Date()
-              },
-              asin: asin?._id
+              }
             });
+            console.log(review);
           } catch (err) {
             console.error(err);
           }
@@ -413,16 +414,17 @@ DataforseoCallbackCachesSchema.post("save", async function (doc) {
           const complete = !!(result?.asin && result?.reviews_count >= 0 && result?.image?.image_url);
           if (!complete) continue;
           // ama
-          const doc = await DataforseoAmazonReviews.findOne({
+          const review = await DataforseoAmazonReviews.findOne({
             "request.asinId": result?.asin,
             "request.taskId": task?.id
           });
-          if (!doc || doc?.result?.completed) continue;
-          doc.result.response = result;
-          doc.result.complete = complete;
-          doc.cache = doc?._id;
-          doc.timestamps.completed = new Date(result?.datetime);
-          await doc.save();
+          if (!review) continue;
+          review.result.response = result;
+          review.result.complete = complete;
+          review.cache = doc?._id;
+          review.timestamps.completed = new Date(result?.datetime);
+          review.markModified("result");
+          await review.save();
         }
       }
     }

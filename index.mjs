@@ -180,7 +180,21 @@ if (process.env.SETUP) {
         passwordHash: await bcrypt.hash("password", process.env.SALT_ROUNDS ?? 10)
       }
     });
-    console.log("Done.");
+    console.log("done.");
+    process.exit();
+  });
+}
+
+if (process.env.TESTEST) {
+  dbConnect().then(async function () {
+    console.log("querying..");
+    const docs = await DataforseoCallbackCaches.find().sort({ timestamp: 1 });
+    for await (let doc of docs) {
+      console.log("doc", doc?._id);
+      doc.markModified("result");
+      await doc.save();
+    }
+    console.log("done.");
     process.exit();
   });
 }
