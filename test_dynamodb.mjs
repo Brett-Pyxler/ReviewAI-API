@@ -14,12 +14,12 @@ try {
         _id: { S: uuidv4() },
         // name: { S: body.name },
         // price: { S: body.price },
-        ip: { S: req.ip },
+        ip: { S: req.ip }
         // headers: { M: req.headers },
         // datenew: { S: String(new Date()) },
         // dateepo: { N: Date.now() },
-      },
-    }),
+      }
+    })
   );
   // "PutItemCommand": {
   //   "$metadata": {
@@ -38,8 +38,8 @@ try {
   payload.ScanCommand = "default";
   payload.ScanCommand = await dynamoClient.send(
     new ScanCommand({
-      TableName: TableName,
-    }),
+      TableName: TableName
+    })
   );
   // "ScanCommand": {
   //   "$metadata": {
@@ -72,14 +72,14 @@ try {
     new GetItemCommand({
       Key: {
         Artist: {
-          S: "Acme Band",
+          S: "Acme Band"
         },
         SongTitle: {
-          S: "Happy Day",
-        },
+          S: "Happy Day"
+        }
       },
-      TableName: TableName,
-    }),
+      TableName: TableName
+    })
   );
 } catch (err) {
   payload.GetItemCommand = String(err);
@@ -91,8 +91,8 @@ try {
   payload.DeleteItemCommand = await dynamoClient.send(
     new DeleteItemCommand({
       TableName: TableName,
-      Key: { id: req.body.id },
-    }),
+      Key: { id: req.body.id }
+    })
   );
 } catch (err) {
   payload.DeleteItemCommand = String(err);
@@ -105,28 +105,28 @@ try {
     new UpdateItemCommand({
       ExpressionAttributeNames: {
         "#AT": "AlbumTitle",
-        "#Y": "Year",
+        "#Y": "Year"
       },
       ExpressionAttributeValues: {
         ":t": {
-          S: "Louder Than Ever",
+          S: "Louder Than Ever"
         },
         ":y": {
-          N: "2015",
-        },
+          N: "2015"
+        }
       },
       Key: {
         Artist: {
-          S: "Acme Band",
+          S: "Acme Band"
         },
         SongTitle: {
-          S: "Happy Day",
-        },
+          S: "Happy Day"
+        }
       },
       ReturnValues: "ALL_NEW",
       TableName: TableName,
-      UpdateExpression: "SET #Y = :y, #AT = :t",
-    }),
+      UpdateExpression: "SET #Y = :y, #AT = :t"
+    })
   );
 } catch (err) {
   payload.UpdateItemCommand = String(err);

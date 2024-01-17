@@ -2,6 +2,7 @@
   "scripts": {
     "lint": "prettier -w .",
     "check": "prettier -c .",
+    "unit_test": "UNIT_TEST=true node index.mjs",
     "exec_test": "EXEC_TEST=true node index.mjs",
     "conn_test": "CONN_TEST=true node index.mjs"
   },
