@@ -54,7 +54,7 @@ async function asinTaskPost(req, res, next) {
 
     return res.json({ asinId: r.asinId, estimateId: r._id });
   } catch (err) {
-    res.status(500).json({ message: String(err) });
+    res.json({ status: 500, message: String(err) });
   }
 }
 
@@ -98,7 +98,22 @@ async function asinTaskGet(req, res, next) {
         r.dataforseo.retrieve.response = s;
         r.dataforseo.retrieve.timestamp = new Date();
         await r.save();
-        // TODO: isComplete?
+        // ascertain completion
+        const result = Object.assign(
+          {},
+          r.dataforseo.retrieve.response.tasks?.[0]?.result?.[0]
+        );
+        r.complete.metadata = Object.assign({}, result, {
+          items: undefined,
+          items_count: undefined
+        });
+        r.complete.timestamp = new Date();
+        r.dataforseo.isComplete = !!(
+          result?.reviews_count >= 0 &&
+          result?.title &&
+          result?.image?.image_url
+        );
+        await r.save();
       }
     }
 
@@ -108,7 +123,7 @@ async function asinTaskGet(req, res, next) {
       complete: r.complete
     });
   } catch (err) {
-    res.status(500).json({ message: String(err) });
+    res.json({ status: 500, message: String(err) });
   }
 }
 

@@ -31,7 +31,8 @@ const AsinEstimatesSchema = new Schema({
     }
   },
   complete: {
-    timestamp: { type: Date, default: null }
+    timestamp: { type: Date, default: null },
+    metadata: { type: Object, default: null }
   },
   dataforseo: {
     taskId: { type: String },
