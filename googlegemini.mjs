@@ -9,6 +9,7 @@ const generationConfig = {
   topK: 1,
   topP: 1,
   maxOutputTokens: 2048
+  // maxOutputTokens: 100,
 };
 
 const safetySettings = [
@@ -47,7 +48,7 @@ async function aiGeminiTest(req, res, next) {
       req.body?.prompt ||
       "Does this look store-bought or homemade?";
 
-    let result, text, image;
+    let result, text, image, chat;
 
     let mode = req.query?.mode || req.body?.mode || "text";
 
@@ -71,24 +72,40 @@ async function aiGeminiTest(req, res, next) {
 
     // alt:
     if (mode == "alt") {
-      result = await model.generateContent({
-        contents: [
+      // result = await model.generateContent({
+      //   contents: [
+      //     {
+      //       role: "user",
+      //       ports: [{ text: "What color is red?" }]
+      //     },
+      //     {
+      //       role: "user",
+      //       ports: [{ text: "What color is blue?" }]
+      //     },
+      //     {
+      //       role: "user",
+      //       ports: [{ text: prompt }]
+      //     }
+      //   ],
+      //   generationConfig,
+      //   safetySettings
+      // });
+
+      chat = model.startChat({
+        history: [
           {
             role: "user",
-            ports: [{ text: "What color is red?" }]
+            parts: "Hello, I have 2 dogs in my house."
           },
           {
-            role: "user",
-            ports: [{ text: "What color is blue?" }]
-          },
-          {
-            role: "user",
-            ports: [{ text: prompt }]
+            role: "model",
+            parts: "Great to meet you. What would you like to know?"
           }
-        ],
-        generationConfig,
-        safetySettings
+        ]
+        // ,generationConfig
       });
+
+      result = await chat.sendMessage("How many paws are in my house?");
       text = result.response.text();
     }
 
@@ -96,7 +113,8 @@ async function aiGeminiTest(req, res, next) {
     res.json({
       prompt,
       text,
-      result
+      result,
+      chat
     });
   } catch (err) {
     res.json({ message: String(err) });
