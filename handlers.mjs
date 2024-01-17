@@ -171,7 +171,7 @@ async function asinTaskPatchPhone(req, res, next) {
     doc.alerts.phone = phone;
     await doc.save();
 
-    return res.json({});
+    return res.json({ success: true });
   } catch (err) {
     res.status(500).json({ message: String(err) });
     console.debug(err);
