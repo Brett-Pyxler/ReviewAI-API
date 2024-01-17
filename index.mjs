@@ -40,8 +40,11 @@ import {
 import {
   adminSearch,
   adminOrganizationCreate,
+  adminOrganizationMembersCreate,
   adminOrganizationMembersAdd,
+  adminOrganizationMembersDel,
   adminOrganizationAsinsAdd,
+  adminOrganizationAsinsDel,
   adminOrganizationsEnumerate,
   adminOrganizationGet,
   adminMemberChangePassword,
@@ -108,7 +111,13 @@ server.post("/api/admin/search", authRouteRequire, adminSearch);
 
 server.post("/api/admin/organization/:id/asins/add", authRouteRequire, adminOrganizationAsinsAdd);
 
+server.post("/api/admin/organization/:id/asins/del", authRouteRequire, adminOrganizationAsinsDel);
+
+server.post("/api/admin/organization/:id/members/create", authRouteRequire, adminOrganizationMembersCreate);
+
 server.post("/api/admin/organization/:id/members/add", authRouteRequire, adminOrganizationMembersAdd);
+
+server.post("/api/admin/organization/:id/members/del", authRouteRequire, adminOrganizationMembersDel);
 
 server.get("/api/admin/organization/:id", authRouteRequire, adminOrganizationGet);
 

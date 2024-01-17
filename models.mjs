@@ -15,6 +15,7 @@ const cMessages = "messages";
 const cNotifications = "notifications";
 const cAmazonAsins = "amazon_asins";
 const cAmazonReviews = "amazon_reviews";
+const cAmazonCases = "amazon_cases";
 const cDataforseoARScrapes = "dataforseo_amazon_reviews";
 const cDataforseoCallbackCaches = "dataforseo_callback_cache";
 const cAsinEstimates = "amazon_asin_estimates";
@@ -439,27 +440,22 @@ AmazonAsinsSchema.index(
 const AmazonAsins = model(cAmazonAsins, AmazonAsinsSchema);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// AmazonComplaints
+// AmazonCases
 
-// const AmazonComplaintsSchema = new Schema({
-//   complaintId: { type: String },
-//   asinId: {
-//     type: String
-//   },
-//   status: {
-//     type: String,
-//     enum: [
-//       "inactive", // not started
-//       "active", // before complaintId
-//       "pending", // after complaintId
-//       "refused", // complaint failure
-//       "removed" // complaint success
-//     ],
-//     default: "inactive"
-//   }
-// });
-
-// const AmazonComplaints = model(, );
+const AmazonCasesSchema = new Schema({
+  complaintId: { type: String },
+  status: {
+    type: String,
+    enum: [
+      "inactive", // not started
+      "active", // before complaintId
+      "pending", // after complaintId
+      "refused", // complaint failure
+      "removed" // complaint success
+    ],
+    default: "inactive"
+  }
+});
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // AmazonReviews
@@ -515,8 +511,7 @@ const AmazonReviewsSchema = new Schema(
     },
     threatValue: { type: Number, default: 0 },
     // ^ sum of openai.threatValue and google.threatValue
-    // todo: is there a use-case for asin ref?
-    asin: { type: Schema.Types.ObjectId, ref: AmazonAsins },
+    cases: [AmazonCasesSchema],
     requestsOnce: { type: Boolean, default: false },
     requestsPending: [String]
     // createdAt: ISODate("2024-01-15T10:33:33.132Z"),
@@ -595,8 +590,14 @@ const AmazonReviewsSchema = new Schema(
   }
 );
 
+// AmazonReviewsSchema.pre("save", async function (next) {
+//   // AmazonCases
+//   // const statusOrder = ["inactive", "active", "pending", "refused", "removed"];
+//   // this.status = this.cases.sort((a, b) => statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status))?.status || this.status;
+//   next();
+// });
+
 AmazonReviewsSchema.post("save", async function (doc) {
-  console.log("AmazonReviews.save()", String(doc._id));
   // AmazonAsins
   const asin = await AmazonAsins.findOne({ asinId: doc.asinId });
   await asin?.syncReviews?.();

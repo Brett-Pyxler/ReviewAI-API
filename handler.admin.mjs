@@ -121,6 +121,31 @@ async function adminMembersEnumerate(req, res, next) {
   }
 }
 
+async function adminOrganizationMembersCreate(req, res, next) {
+  try {
+    const organizationId = req.params?.id || null;
+    const preferredName = String(req.body?.preferredName || "");
+    if (!req.member?.administrator?.fullAccess) {
+      throw new Error("Permission denied.");
+    }
+    let isSane = /^[a-zA-Z0-9\-\_]+$/.test(preferredName);
+    if (!isValidObjectId(organizationId) || !preferredName || !isSane) {
+      throw new Error("Invalid inputs.");
+    }
+    let response = await Members.create({
+      preferredName,
+      organizations: [organizationId]
+    });
+    if (!response) {
+      throw new Error("Failed creating member.");
+    }
+    // response
+    res.json({});
+  } catch (err) {
+    res.status(401).json({ message: String(err) });
+  }
+}
+
 async function adminOrganizationMembersAdd(req, res, next) {
   try {
     const organizationId = req.params?.id || null;
@@ -136,6 +161,29 @@ async function adminOrganizationMembersAdd(req, res, next) {
       throw new Error("Unknown member.");
     }
     response.organizations.push(organizationId);
+    await response.save();
+    // response
+    res.json({});
+  } catch (err) {
+    res.status(401).json({ message: String(err) });
+  }
+}
+
+async function adminOrganizationMembersDel(req, res, next) {
+  try {
+    const organizationId = req.params?.id || null;
+    const memberId = req.body?.memberId || null;
+    if (!req.member?.administrator?.fullAccess) {
+      throw new Error("Permission denied.");
+    }
+    if (!isValidObjectId(organizationId) || !isValidObjectId(memberId)) {
+      throw new Error("Invalid inputs.");
+    }
+    let response = await Members.findById(memberId);
+    if (!response) {
+      throw new Error("Unknown member.");
+    }
+    response.organizations = response.organizations.filter((x) => String(x) != String(organizationId));
     await response.save();
     // response
     res.json({});
@@ -167,6 +215,46 @@ async function adminOrganizationAsinsAdd(req, res, next) {
       throw new Error("Unknown asin.");
     }
     response.asins.push(asin._id);
+    await response.save();
+    // dataforseo
+    // await dfsARScrapesEnsure(asinId, {
+    //   reviewDepth: 100
+    // });
+    // await dfsARScrapesEnsure(asinId, {
+    //   reviewDepth: 10,
+    //   filterByStar: "critical"
+    // });
+    // response
+    res.json({});
+  } catch (err) {
+    res.status(401).json({ message: String(err) });
+  }
+}
+
+async function adminOrganizationAsinsDel(req, res, next) {
+  try {
+    const organizationId = req.params?.id || null;
+    const asinId = req.body?.asinId || null;
+    if (!req.member?.administrator?.fullAccess) {
+      throw new Error("Permission denied.");
+    }
+    if (!isValidObjectId(organizationId)) {
+      throw new Error("Invalid inputs.");
+    }
+    if (!asinPattern.test(asinId)) {
+      throw new Error("Invalid inputs.");
+    }
+    let response = await Organizations.findById(organizationId);
+    if (!response) {
+      throw new Error("Unknown organization.");
+    }
+    let asin = await AmazonAsins.findOne({ asinId });
+    // asin ??= await AmazonAsins.create({ asinId });
+    if (!asin) {
+      throw new Error("Unknown asin.");
+    }
+    // response.asins.push(asin._id);
+    response.asins = response.asins.filter((x) => String(x) != String(asin?._id));
     await response.save();
     // dataforseo
     // await dfsARScrapesEnsure(asinId, {
@@ -242,8 +330,11 @@ async function adminMemberChangePassword(req, res, next) {
 export {
   adminSearch,
   adminOrganizationCreate,
+  adminOrganizationMembersCreate,
   adminOrganizationMembersAdd,
+  adminOrganizationMembersDel,
   adminOrganizationAsinsAdd,
+  adminOrganizationAsinsDel,
   adminOrganizationsEnumerate,
   adminOrganizationGet,
   adminMemberChangePassword,
