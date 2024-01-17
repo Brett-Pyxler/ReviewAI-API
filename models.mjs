@@ -31,26 +31,30 @@ const AsinEstimatesSchema = new Schema({
     }
   },
   complete: {
-    timestamp: { type: Date, default: null },
-    metadata: { type: Object, default: null }
+    isComplete: { type: Boolean, default: false },
+    metadata: { type: Object, default: null },
+    timestamp: { type: Date, default: null }
   },
   dataforseo: {
-    taskId: { type: String },
     isComplete: { type: Boolean, default: false },
+    taskId: { type: String },
     create: {
-      request: { type: Object, default: null },
+      // request: { type: Object, default: null },
       response: { type: Object, default: null },
-      timestamp: { type: Date, default: null }
+      timestamp: { type: Date, default: null },
+      timespan: { type: Number, default: null }
     },
     retrieve: {
-      request: { type: Object, default: null },
+      // request: { type: Object, default: null },
       response: { type: Object, default: null },
-      timestamp: { type: Date, default: null }
+      timestamp: { type: Date, default: null },
+      timespan: { type: Number, default: null }
     },
     callback: {
-      request: { type: Object, default: null },
+      // request: { type: Object, default: null },
       response: { type: Object, default: null },
       timestamp: { type: Date, default: null }
+      // timespan: { type: Number, default: null }
     }
   }
 });

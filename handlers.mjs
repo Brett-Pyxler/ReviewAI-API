@@ -52,14 +52,17 @@ async function asinTaskPost(req, res, next) {
       throw new Error("invalid database response");
     }
 
-    return res.json({ asinId: r.asinId, estimateId: r._id });
+    return res.json({
+      //
+      asinId: r.asinId,
+      estimateId: r._id
+    });
   } catch (err) {
-    res.json({ status: 500, message: String(err) });
+    res.status(500).json({ message: String(err) });
   }
 }
 
 async function asinTaskGet(req, res, next) {
-  let debug = [];
   try {
     let estimateId = extractPattern(
       objectPatern,
@@ -71,71 +74,68 @@ async function asinTaskGet(req, res, next) {
       req.params?.estimateId
     );
 
-    debug.push(`estimateId: ${estimateId}`);
-
     if (!estimateId) {
       throw new Error("invalid estimateId");
     }
 
     let r = await AsinEstimates.findById({ _id: estimateId });
 
-    debug.push(`complete.timestamp: ${r?.complete?.timestamp}`);
-    if (!r?.complete?.timestamp) {
+    if (!r?.complete?.isComplete || r?.complete?.metadata === null) {
       // estimate is incomplete
-
-      debug.push(`taskId: ${r?.dataforseo?.taskId}`);
-      debug.push(`isComplete: ${r?.dataforseo?.isComplete}`);
       if (!r?.dataforseo?.taskId) {
         // dataforseo task is missing
-        debug.push("!taskId");
+        let ts = Date.now();
         let s = await amazonReviewsTaskCreate(r.asinId, {
           // shallow depth for statistics
           reviewDepth: 10,
           // enable callback with estimateId
           searchOptions: `estimateId=${estimateId}`
         });
+        let te = Date.now();
         // update estimate attributes
         r.dataforseo.taskId = s?.tasks?.[0]?.id;
         r.dataforseo.create.response = s;
         r.dataforseo.create.timestamp = new Date();
+        r.dataforseo.create.timespan = te - ts;
         await r.save();
       } else if (!r?.dataforseo?.isComplete) {
         // dataforseo task is pending
-        debug.push("!isComplete");
+        let ts = Date.now();
         let s = await amazonReviewsTaskRetrieve(r.dataforseo.taskId);
-        debug.push(s);
+        let te = Date.now();
         r.dataforseo.retrieve.response = s;
         r.dataforseo.retrieve.timestamp = new Date();
+        r.dataforseo.retrieve.timespan = te - ts;
         await r.save();
         // ascertain completion
         const result = Object.assign(
           {},
           r.dataforseo.retrieve.response.tasks?.[0]?.result?.[0]
         );
-        debug.push(result);
         r.complete.metadata = Object.assign({}, result, {
           items: undefined,
           items_count: undefined
         });
-        debug.push(r.complete.metadata);
         r.complete.timestamp = new Date();
-        r.dataforseo.isComplete = !!(
+        let isComplete = !!(
           result?.reviews_count >= 0 &&
           result?.title &&
           result?.image?.image_url
         );
+        r.dataforseo.isComplete = isComplete;
+        r.complete.isComplete = isComplete;
         await r.save();
       }
     }
 
     return res.json({
+      //
       estimateId: r._id,
       asinId: r.asinId,
-      complete: r.complete,
-      debug: debug
+      complete: r.complete
     });
   } catch (err) {
-    res.json({ status: 500, message: String(err), debug: debug });
+    res.status(500).json({ message: String(err) });
   }
 }
 
