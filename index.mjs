@@ -1,5 +1,5 @@
-const serverless = require('serverless-http');
-const express = require('express');
+import serverless from "serverless-http";
+import express from "express";
 
 const server = express();
 
@@ -7,12 +7,10 @@ server.all("*", function(req,res,next) {
 	res.json({
 		success: true,
 		timestamp: new Date(),
+		query: req.query,
+		body: req.body,
+		headers: req.headers,
 	});
 });
 
-const handler = serverless(server);
-
-module.exports.handler = async (event, context) => {
-	const result = await handler(event, context);
-	return result;
-};
+export const handler = serverless(server);
