@@ -1,8 +1,4 @@
-import {
-  GoogleGenerativeAI,
-  HarmBlockThreshold,
-  HarmCategory
-} from "@google/generative-ai";
+import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from "@google/generative-ai";
 
 const generationConfig = {
   temperature: 0.9,
@@ -43,10 +39,7 @@ async function aiGeminiTest(req, res, next) {
       safetySettings
     });
 
-    let prompt =
-      req.query?.prompt ||
-      req.body?.prompt ||
-      "Does this look store-bought or homemade?";
+    let prompt = req.query?.prompt || req.body?.prompt || "Does this look store-bought or homemade?";
 
     let result, text, image, chat;
 

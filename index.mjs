@@ -4,51 +4,39 @@ dotenv.config();
 
 import mongoose from "mongoose";
 
+import helmet from "helmet";
+
 import serverless from "serverless-http";
 
 import express from "express";
 
 import cookieParser from "cookie-parser";
 
-import {
-  //
-  // dataforseoAmazonReviewsTaskCreate,
-  // dataforseoAmazonReviewsTaskRetrieve,
-  dataforseoAmazonReviewsTaskCallback
-} from "./dataforseo.mjs";
+import { asinsOverviewLookup, asinsOverviewEnumerate, asinsOverviewGet } from "./handler.organizations.mjs";
+
+import { dataforseoAmazonReviewsTaskCallback } from "./dataforseo.mjs";
 
 import {
-  //
-  asinEstimateTaskPost,
-  asinEstimateTaskGet,
-  asinEstimateTaskPatchPhone
-} from "./handlers.mjs";
+  adminSearch,
+  adminCreateOrganization,
+  adminOrganizationGet,
+  adminOrganizationsEnumerate,
+  adminMembersEnumerate,
+  adminOrganizationAsinsAdd,
+  adminOrganizationMembersAdd
+} from "./handler.admin.mjs";
 
-import {
-  //
-  AsinEstimates
-} from "./models.mjs";
+import { authLogin, authLogout, authRetrieve, authRouteDecode, authRouteRequire } from "./authentication.mjs";
 
-import {
-  //
-  authCreate,
-  authDelete,
-  authRetrieve,
-  authRouteDecode,
-  authTokenCreate,
-  authTokenDecode
-} from "./authentication.mjs";
+import { DataforseoAmazonReviews } from "./models.mjs";
 
-import {
-  //
-  aiGeminiTest
-} from "./googlegemini.mjs";
-
-const server = express();
+export const server = express();
 
 server.enable("trust proxy");
 
 server.disable("x-powered-by");
+
+server.use(helmet());
 
 server.use(cookieParser());
 
@@ -56,81 +44,83 @@ server.use(express.json());
 
 server.use(express.urlencoded({ extended: true }));
 
-server.all(
-  //
-  "/api/dataforseo/callback/data",
-  dataforseoAmazonReviewsTaskCallback
-);
+server.use(async function (req, res, next) {
+  console.log(req.method, req.url);
+  next();
+});
+// Authentication
 
-server.patch(
-  //
-  "/api/asin/estimate/task/phone",
-  asinEstimateTaskPatchPhone
-);
+server
+  .post("/api/auth", authRouteDecode, authLogin)
+  .get("/api/auth", authRouteRequire, authRetrieve)
+  .delete("/api/auth", authRouteRequire, authLogout);
 
-server.post(
-  //
-  "/api/asin/estimate/task",
-  asinEstimateTaskPost
-);
+// Asins
 
-server.get(
-  //
-  "/api/asin/estimate/task/:estimateId",
-  asinEstimateTaskGet
-);
+server.get("/api/asins/lookup/:id", authRouteRequire, asinsOverviewLookup);
 
-server.get(
-  //
-  "/api/asin/estimate/task",
-  asinEstimateTaskGet
-);
+server.get("/api/asins/enumerate", authRouteRequire, asinsOverviewEnumerate);
 
-// server.post(
-//   //
-//   "/api/auth",
-//   authRouteDecode,
-//   authCreate
-// );
+server.get("/api/asins/overview", authRouteRequire, asinsOverviewGet);
 
-// server.delete(
-//   //
-//   "/api/auth",
-//   authRouteDecode,
-//   authDelete
-// );
+// server.get("/api/asins/insight", authRouteRequire, asinsInsightGet);
 
-// server.all(
-//   //
-//   "/api/auth",
-//   authRouteDecode,
-//   authRetrieve
-// );
+server.post("/api/admin/search", authRouteRequire, adminSearch);
 
-server.all(
-  //
-  "/api/ai/gemini/test",
-  aiGeminiTest
-);
+server.post("/api/admin/organization/:id/asins/add", authRouteRequire, adminOrganizationAsinsAdd);
 
-server.all(
-  //
-  "*",
-  async function (req, res, next) {
-    res.status(404).end();
-  }
-);
+server.post("/api/admin/organization/:id/members/add", authRouteRequire, adminOrganizationMembersAdd);
+
+server.get("/api/admin/organization/:id", authRouteRequire, adminOrganizationGet);
+
+server.post("/api/admin/organization", authRouteRequire, adminCreateOrganization);
+
+server.get("/api/admin/organizations/enumerate", authRouteRequire, adminOrganizationsEnumerate);
+
+server.get("/api/admin/members/enumerate", authRouteRequire, adminMembersEnumerate);
+
+server.all("/api/dataforseo/callback/data", dataforseoAmazonReviewsTaskCallback);
+
+// OLD:
+
+// server.patch("/api/asin/estimate/task/phone", asinEstimateTaskPatchPhone);
+
+// server.post("/api/asin/estimate/task", asinEstimateTaskPost);
+
+// server.get("/api/asin/estimate/task/:estimateId", asinEstimateTaskGet);
+
+// server.get("/api/asin/estimate/task", asinEstimateTaskGet);
+
+// server.all("/api/ai/gemini/test", aiGeminiTest);
+
+server.all("*", async function (req, res, next) {
+  res.status(404).end();
+});
+
+export const dbConnect = async function () {
+  global.mongoose_client ??= await mongoose.connect(process.env.MONGO_CONNECTION, {
+    user: encodeURIComponent(process.env.MONGO_USERNAME),
+    pass: encodeURIComponent(process.env.MONGO_PASSWORD)
+  });
+};
+
+export const dbDisconnect = async function () {
+  await global.mongoose_client?.disconnect?.();
+  global.mongoose_client = null;
+};
 
 export const handler = async function (event, context) {
-  global.mongoose_client ??= await mongoose.connect(
-    process.env.MONGO_CONNECTION,
-    {
-      user: encodeURIComponent(process.env.MONGO_USERNAME),
-      pass: encodeURIComponent(process.env.MONGO_PASSWORD)
-    }
-  );
+  await dbConnect();
   return serverless(server)(event, context);
 };
+
+if (process.env.DEV) {
+  dbConnect().then(function () {
+    server.listen(3000, function () {
+      console.log("listen()", this.address());
+    });
+  });
+}
 
 if (process.env.EXEC_TEST) {
   handler()
@@ -145,53 +135,25 @@ if (process.env.CONN_TEST) {
     //
     .then(async () => {
       console.log(
+        //
         await mongoose.connection.db.admin().command({
           listDatabases: 1
         })
+      );
+      console.log(
+        //
+        await mongoose.connection.db.listCollections().toArray()
       );
     })
     .catch(console.error)
     .then(process.exit);
 }
 
-if (process.env.UNIT_TEST) {
-  const _res = {
-    json: function (e) {
-      console.log(JSON.stringify(e, null, 2));
-    },
-    status: function (e) {
-      return this;
-    }
-  };
-
-  handler().then(() => {
-    false &&
-      AsinEstimates.findById("657b0907fa51cc529a481c7a").then(function (doc) {
-        doc.set("dataforseo.retrieve.response", "changed");
-        doc.save().then(function () {
-          console.log("saved");
-          process.exit();
-        });
-      });
-
-    false &&
-      asinEstimateTaskPost(
-        {
-          query: { asinId: "A123456789" }
-        },
-        _res
-      )
-        .catch(console.error)
-        .then(process.exit);
-
-    false &&
-      asinEstimateTaskGet(
-        {
-          query: { estimateId: "657c1d2f603b41a97208c1a6" }
-        },
-        _res
-      )
-        .catch(console.error)
-        .then(process.exit);
-  });
-}
+// if (process.env.TESTEST) {
+//   dbConnect().then(async function () {
+//     let doc = await DataforseoAmazonReviews.findById("6594d3dd91ba48f97505d34e");
+//     console.log("found", !!doc);
+//     if (doc) console.log(await doc.save());
+//     process.exit();
+//   });
+// }

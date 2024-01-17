@@ -112,9 +112,7 @@ async function asinEstimateTaskGet(req, res, next) {
       } else if (!doc?.dataforseo?.isComplete) {
         // dataforseo task is pending
         let ts = Date.now();
-        let s = await dataforseoAmazonReviewsTaskRetrieve(
-          doc.dataforseo.taskId
-        );
+        let s = await dataforseoAmazonReviewsTaskRetrieve(doc.dataforseo.taskId);
         let te = Date.now();
         doc.dataforseo.retrieve.response = s;
         doc.dataforseo.retrieve.timestamp = new Date();
