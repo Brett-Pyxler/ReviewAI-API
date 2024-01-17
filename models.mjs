@@ -274,6 +274,25 @@ const AmazonAsinsSchema = new Schema(
         if (needSaved) {
           await this.save();
         }
+      },
+      async syncReviews() {
+        let agg = await AmazonReviews.aggregate([
+          { $match: { asinId: this.asinId } },
+          { $group: { _id: "$status", count: { $sum: 1 } } }
+        ]);
+
+        this.reviews.total = 0;
+
+        for (let key of Object.keys(this.reviews.count)) {
+          this.reviews.count[key] = 0;
+        }
+
+        for (let a of agg) {
+          this.reviews.total += a.count;
+          this.reviews.count[a._id] = a.count;
+        }
+
+        await this.save();
       }
     }
   }
@@ -357,38 +376,10 @@ AmazonReviewsSchema.pre("save", async function (next) {
   next();
 });
 
-async function syncAsinReviews(asinId) {
-  let doc = await AmazonAsins.findOne({ asinId });
-  let agg = await AmazonReviews.aggregate([
-    {
-      $match: {
-        asinId
-      }
-    },
-    {
-      $group: {
-        _id: "$status",
-        count: { $sum: 1 }
-      }
-    }
-  ]);
-
-  doc.reviews.total = 0;
-
-  for (let key of Object.keys(doc.reviews.count)) {
-    doc.reviews.count[key] = 0;
-  }
-
-  for (let a of agg) {
-    doc.reviews.total += a.count;
-    doc.reviews.count[a._id] = a.count;
-  }
-
-  await doc.save();
-}
-
 AmazonReviewsSchema.post("save", async function (doc) {
-  await syncAsinReviews(doc.asinId);
+  // AmazonAsins
+  const asin = await AmazonAsins.findOne({ asinId: this.asinId });
+  await asin?.syncReviews?.();
 });
 
 const AmazonReviews = model(cAmazonReviews, AmazonReviewsSchema);
