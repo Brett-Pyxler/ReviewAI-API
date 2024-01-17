@@ -28,11 +28,16 @@ async function adminSearch(req, res, next) {
     })
       .populate("organizations")
       .exec();
+    // find asins
+    let asins = await AmazonAsins.find({
+      title: { $regex: pattern, $options: "i" }
+    }).exec();
     // response
     res.json({
       search: []
         .concat(orgs.map((ptr) => Object.assign(ptr.toJSON(), { model: "Organizations" })))
         .concat(mems.map((ptr) => Object.assign(ptr.toJSON(), { model: "Members" })))
+        .concat(asins.map((ptr) => Object.assign(ptr.toJSON(), { model: "Asins" })))
     });
   } catch (err) {
     res.status(401).json({ message: String(err) });
