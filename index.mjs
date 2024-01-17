@@ -185,12 +185,12 @@ if (process.env.SETUP) {
   });
 }
 
-if (process.env.TESTEST) {
+if (process.env.REVALIDATE) {
   dbConnect().then(async function () {
     console.log("querying..");
     const docs = await DataforseoCallbackCaches.find().sort({ timestamp: 1 });
     for await (let doc of docs) {
-      console.log("########################################")
+      console.log("########################################");
       console.log("doc", doc?._id);
       doc.markModified("result");
       await doc.save();
