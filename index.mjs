@@ -20,6 +20,7 @@ import {
   asinsOverviewGet,
   asinsInsightsGet,
   asinsReviewsEnumerate,
+  asinsReviewsPaginate,
   apiSearch
 } from "./handler.portal.mjs";
 
@@ -83,7 +84,9 @@ server.post("/api/search", authRouteRequire, apiSearch);
 
 // Asins
 
-server.get("/api/asin/:id/reviews", authRouteRequire, asinsReviewsEnumerate);
+server.get("/api/asin/:id/reviews", authRouteRequire, asinsReviewsPaginate);
+
+// server.get("/api/asin/:id/reviews", authRouteRequire, asinsReviewsEnumerate);
 
 server.get("/api/asin/:id", authRouteRequire, asinsOverviewLookup);
 

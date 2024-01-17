@@ -97,11 +97,43 @@ async function asinsReviewsEnumerate(req, res, next) {
   try {
     const asinId = req.params?.id || null;
     // aggregate
-    let response = await AmazonReviews.find({
-      asinId
-    });
+    const response = await AmazonReviews.find({ asinId });
     // response
     res.json({ enumerate: response });
+  } catch (err) {
+    res.status(401).json({ message: String(err) });
+  }
+}
+
+function cleanObject(i) {
+  return Object.fromEntries(Object.entries(i).filter((x) => x[1] != undefined));
+}
+
+async function asinsReviewsPaginate(req, res, next) {
+  try {
+    // options
+    const asinId = req.params?.id || null;
+    const status = String(req.query?.status || req.body?.status || "") || undefined;
+    const limit = Math.max(20, Math.min(100, parseInt(+req.query?.perPage || +req.body?.perPage || 20, 10)));
+    const page = Math.max(1, parseInt(+req.query?.page || +req.body?.page || 1, 10));
+    const skip = (page - 1) * limit;
+    // query
+    const filter = cleanObject({ asinId, status });
+    const count = await AmazonReviews.countDocuments(filter);
+    const pages = Math.ceil(count / limit || 0);
+    // aggregate
+    const response = await AmazonReviews.find(filter).skip(skip).limit(limit);
+    // response
+    res.json({
+      reviews: response,
+      paginate: {
+        count,
+        limit,
+        page,
+        skip,
+        pages
+      }
+    });
   } catch (err) {
     res.status(401).json({ message: String(err) });
   }
@@ -145,5 +177,6 @@ export {
   asinsOverviewGet,
   asinsInsightsGet,
   asinsReviewsEnumerate,
+  asinsReviewsPaginate,
   apiSearch
 };
